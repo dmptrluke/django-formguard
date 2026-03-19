@@ -1,9 +1,25 @@
 # django-formguard
 
-Invisible, layered form protection for Django. Combines honeypot fields, signed
-timestamps, and a pluggable check pipeline to block bots without
-user friction. Bots receive a fake success response indistinguishable from a
-real one.
+Invisible, layered form protection for Django. Implements a pluggable check
+pipeline to block bots without user friction.
+
+## How It Works
+
+FormGuard runs a pipeline of checks against each form submission:
+
+1. **Field trap** - A hidden honeypot field that should always be empty. Bots
+   that fill all visible fields get caught.
+2. **Timing** - A signed timestamp records when the form was loaded. Submissions
+   faster than `FORMGUARD_MIN_SECONDS` are flagged.
+3. **Signature** - The timestamp token is cryptographically signed. Tampered or
+   expired tokens are rejected.
+4. **JS challenge** - A JavaScript snippet sets a hidden field value that bots
+   without JS execution can't fake.
+
+All checks are invisible to real users. The honeypot field is hidden via CSS,
+and the timing/signature checks happen server-side.
+
+Bots receive a fake success response indistinguishable from a real one.
 
 ## Installation
 
@@ -99,22 +115,6 @@ def contact_view(request, form=None):
     send_email(form.cleaned_data)
     return redirect('/thanks/')
 ```
-
-## How It Works
-
-FormGuard runs a pipeline of checks against each form submission:
-
-1. **Field trap** - A hidden honeypot field that should always be empty. Bots
-   that fill all visible fields get caught.
-2. **Timing** - A signed timestamp records when the form was loaded. Submissions
-   faster than `FORMGUARD_MIN_SECONDS` are flagged.
-3. **Signature** - The timestamp token is cryptographically signed. Tampered or
-   expired tokens are rejected.
-4. **JS challenge** - A JavaScript snippet sets a hidden field value that bots
-   without JS execution can't fake.
-
-All checks are invisible to real users. The honeypot field is hidden via CSS,
-and the timing/signature checks happen server-side.
 
 ## Settings
 
