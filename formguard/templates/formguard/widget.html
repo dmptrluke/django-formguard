@@ -1,0 +1,9 @@
+<div class="fg-field" aria-hidden="true">
+    <label for="{{ widget.attrs.id }}">{{ widget.label }}</label>
+    <input type="{{ widget.type }}"
+           name="{{ widget.name }}"
+           {% if widget.value %}value="{{ widget.value }}"{% endif %}
+           {% for key, val in widget.attrs.items %}
+           {{ key }}="{{ val }}"
+           {% endfor %}>
+</div>
