@@ -3,7 +3,7 @@ import functools
 from django.http import HttpResponseRedirect
 
 from formguard.checks import run_checks
-from formguard.utils import handle_bot
+from formguard.utils import add_success_message, handle_bot
 
 
 def guard_form(form_class, success_url, auto_reject=True):
@@ -27,6 +27,7 @@ def guard_form(form_class, success_url, auto_reject=True):
                 if reasons:
                     handle_bot(view_func, request, form, reasons)
                     if auto_reject:
+                        add_success_message(request)
                         return HttpResponseRedirect(success_url)
                     else:
                         request.formguard_reasons = reasons

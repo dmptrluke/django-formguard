@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Move success message from `is_bot()` to `bot_response()` so calling `is_bot()` has no user-visible side effects
+
 ## 0.1.0
 
 Initial release.

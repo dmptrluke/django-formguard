@@ -1,7 +1,7 @@
 from django.http import HttpResponseRedirect
 
 from formguard.checks import run_checks
-from formguard.utils import handle_bot
+from formguard.utils import add_success_message, handle_bot
 
 
 class GuardedFormViewMixin:
@@ -17,4 +17,5 @@ class GuardedFormViewMixin:
 
     def bot_response(self):
         """Return a response indistinguishable from a real success."""
+        add_success_message(self.request)
         return HttpResponseRedirect(self.get_success_url())
