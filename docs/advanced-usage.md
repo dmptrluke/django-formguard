@@ -1,4 +1,22 @@
-# Configuration
+# Advanced Usage
+
+## Manual Field Rendering
+
+If your template renders fields individually instead of using `{{ form }}`,
+use `{{ form.guard_fields }}` to render all guard fields at once:
+
+```html
+<form method="post">
+    {% csrf_token %}
+    {{ form.guard_fields }}
+    <label>Name</label>
+    {{ form.name }}
+    <button type="submit">Send</button>
+</form>
+```
+
+This renders the honeypot, token, nonce, and JS challenge fields - whatever
+the active checks require. It adapts automatically when you change checks.
 
 ## Per-Form Checks
 

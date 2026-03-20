@@ -70,6 +70,19 @@ challenge runs.
 </body>
 ```
 
+If your template renders fields manually instead of using `{{ form }}`, use
+`{{ form.guard_fields }}` to render all guard fields at once:
+
+```html
+<form method="post">
+    {% csrf_token %}
+    {{ form.guard_fields }}
+    <label>Name</label>
+    {{ form.name }}
+    <button type="submit">Send</button>
+</form>
+```
+
 ### 3. Check submissions in your view
 
 **Class-based views** - use `GuardedFormViewMixin`:

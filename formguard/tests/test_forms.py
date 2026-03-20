@@ -65,6 +65,17 @@ class GuardedFormMixinTests(SimpleTestCase):
         assert 'website' not in form.fields
         assert 'fg_token' not in form.fields
 
+    # guard_fields renders all check fields as HTML
+    def test_guard_fields_renders_all_check_fields(self):
+        form = SampleForm()
+        html = form.guard_fields
+        assert 'name="website"' in html
+        assert 'name="fg_token"' in html
+        assert 'name="fg_nonce"' in html
+        assert 'name="fg_js"' in html
+        assert 'name="name"' not in html
+        assert 'name="email"' not in html
+
     # formguard_checks class attribute overrides global setting
     def test_per_form_checks(self):
         class HoneypotOnlyForm(GuardedFormMixin, forms.Form):

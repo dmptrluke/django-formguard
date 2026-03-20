@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- `guard_fields` property on `GuardedFormMixin` for templates that render fields manually
+
 ## 0.2.0
 
 **Breaking:** class-based check pipeline.
