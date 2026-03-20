@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+
+- `InteractionCheck` - detects mouse, keyboard, or touch interaction; accessible to screen readers
+- Enabled by default in `FORMGUARD_CHECKS`
+
 ## 0.2.1
 
 - `guard_fields` property on `GuardedFormMixin` for templates that render fields manually

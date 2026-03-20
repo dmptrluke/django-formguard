@@ -60,6 +60,8 @@ SIGNING_SALT = 'formguard'
 
 
 class FieldTrapCheck(BaseCheck):
+    """Hidden honeypot field that should always be empty. Bots that fill all visible fields get caught."""
+
     settings_prefix = 'FIELD_TRAP'
     defaults = {'FIELD_NAME': 'website'}
 
@@ -83,6 +85,11 @@ class FieldTrapCheck(BaseCheck):
 
 
 class TokenCheck(BaseCheck):
+    """Signed timestamp that records when the form was loaded.
+
+    Catches submissions faster than MIN_SECONDS or with tampered/expired tokens.
+    """
+
     settings_prefix = 'TOKEN'
     defaults = {'MIN_SECONDS': 3, 'MAX_SECONDS': 3600}
 
@@ -116,6 +123,8 @@ class TokenCheck(BaseCheck):
 
 
 class JsChallengeCheck(BaseCheck):
+    """Embed a random nonce in the form. JavaScript computes a value from it that bots without JS can't produce."""
+
     def get_fields(self):
         return {
             'fg_nonce': CharField(
@@ -151,6 +160,30 @@ class JsChallengeCheck(BaseCheck):
     @staticmethod
     def _make_nonce():
         return secrets.token_hex(16)
+
+
+class InteractionCheck(BaseCheck):
+    """Detect real user interaction via keydown, focusin, and pointerdown events. Accessible to screen readers."""
+
+    def get_fields(self):
+        return {
+            'fg_ia': CharField(
+                required=False,
+                widget=HiddenInput(attrs={'data-fg-ia': True}),
+                initial='',
+            ),
+        }
+
+    def get_media(self):
+        return Media(js=('formguard/formguard-ia.js',))
+
+    def check(self, request, form):
+        if not form.cleaned_data.get('fg_ia'):
+            return 'no interaction detected'
+        return False
+
+    def test_data(self):
+        return {'fg_ia': '1'}
 
 
 def resolve_checks(check_paths):

@@ -20,12 +20,13 @@ class GuardedFormMixinTests(SimpleTestCase):
         assert 'fg_token' in form.fields
         assert 'fg_nonce' in form.fields
         assert 'fg_js' in form.fields
+        assert 'fg_ia' in form.fields
 
     # mixin caches check instances on self._checks
     def test_caches_checks(self):
         form = SampleForm()
         assert hasattr(form, '_checks')
-        assert len(form._checks) == 3
+        assert len(form._checks) == 4
 
     # honeypot field uses HoneypotWidget
     def test_honeypot_uses_widget(self):
@@ -73,6 +74,7 @@ class GuardedFormMixinTests(SimpleTestCase):
         assert 'name="fg_token"' in html
         assert 'name="fg_nonce"' in html
         assert 'name="fg_js"' in html
+        assert 'name="fg_ia"' in html
         assert 'name="name"' not in html
         assert 'name="email"' not in html
 

@@ -5,20 +5,16 @@ bots without any user interaction.
 
 ## How It Works
 
-FormGuard runs a pipeline of checks against each form submission:
+FormGuard runs a series of checks against each form submission:
 
-1. **Field trap** - a hidden honeypot field that should always be empty. Bots
-   that fill all visible fields get caught.
-2. **Token** - a signed timestamp records when the form was loaded. Submissions
-   faster than `MIN_SECONDS` or with tampered/expired tokens are flagged.
-3. **JS challenge** - a random nonce is embedded in the form. JavaScript
-   computes a value from it that bots without JS execution can't produce.
+1. **Field trap** - hidden honeypot field that bots fill in
+2. **Token** - signed timestamp that catches fast or tampered submissions
+3. **JS challenge** - nonce computation that requires JavaScript execution
+4. **Interaction proof** - detects real user input (accessible to screen readers)
 
-All checks are invisible to real users. Bots receive a fake success response
-indistinguishable from a real one.
+All checks are invisible to real users. Bots get a fake success response.
 
-The pipeline is extensible - each check is a class that owns its form fields,
-media, and settings. See [Custom Checks](docs/custom-checks.md).
+FormGuard is extensible - new checks can be added easily. See [Custom Checks](docs/custom-checks.md).
 
 ## Installation
 
@@ -37,10 +33,10 @@ INSTALLED_APPS = [
 
 ## Quick Start
 
-### 1. Define your form
+### 1. Set up your form
+Add `GuardedFormMixin` to your form.
 
 ```python
-# forms.py
 from django import forms
 from formguard.forms import GuardedFormMixin
 
@@ -50,14 +46,12 @@ class ContactForm(GuardedFormMixin, forms.Form):
     message = forms.CharField(widget=forms.Textarea)
 ```
 
-### 2. Include `{{ form.media }}` in your template
+### 2. Set up your template
 
-FormGuard's CSS and JS are declared as form media. Include `{{ form.media }}`
-in your template's `<head>` so the honeypot field is hidden and the JS
-challenge runs.
+Include `{{ form.media }}` in your `<head>` so the honeypot CSS and JS
+checks load. 
 
 ```html
-<!-- contact.html -->
 <head>
     {{ form.media }}
 </head>
@@ -70,18 +64,8 @@ challenge runs.
 </body>
 ```
 
-If your template renders fields manually instead of using `{{ form }}`, use
-`{{ form.guard_fields }}` to render all guard fields at once:
-
-```html
-<form method="post">
-    {% csrf_token %}
-    {{ form.guard_fields }}
-    <label>Name</label>
-    {{ form.name }}
-    <button type="submit">Send</button>
-</form>
-```
+If you render fields manually, use
+`{{ form.guard_fields }}` to include all guard fields.
 
 ### 3. Check submissions in your view
 
@@ -115,26 +99,27 @@ def contact_view(request, form=None):
     return redirect('/thanks/')
 ```
 
+
+
 ## Settings
 
-All settings are optional. Defaults work out of the box.
-
-| Setting | Default | Description |
-| -- | -- | -- |
-| `FORMGUARD_SUCCESS_MESSAGE` | `None` | Fake success message shown to bots (via Django messages) |
-| `FORMGUARD_CHECKS` | *(see below)* | Ordered list of check class paths |
-| `FORMGUARD_FIELD_TRAP_FIELD_NAME` | `'website'` | Honeypot field name (label derived via `.title()`) |
-| `FORMGUARD_TOKEN_MIN_SECONDS` | `3` | Minimum seconds before a submission is accepted |
-| `FORMGUARD_TOKEN_MAX_SECONDS` | `3600` | Maximum token age before expiry |
-
-Default checks:
+All settings are optional. Defaults work out of the box. All four built-in
+checks are enabled by default.
 
 ```python
-FORMGUARD_CHECKS = [
-    'formguard.checks.FieldTrapCheck',
-    'formguard.checks.TokenCheck',
-    'formguard.checks.JsChallengeCheck',
+# fake success message shown to bots (via Django messages)
+FORMGUARD_SUCCESS_MESSAGE = 'Your message has been sent.'
+
+# add a custom check alongside the defaults
+from formguard.conf import DEFAULTS
+FORMGUARD_CHECKS = DEFAULTS['CHECKS'] + [
+    'myapp.checks.TurnstileCheck',
 ]
+
+# tune the built-in checks
+FORMGUARD_FIELD_TRAP_FIELD_NAME = 'website'  # default
+FORMGUARD_TOKEN_MIN_SECONDS = 3              # default
+FORMGUARD_TOKEN_MAX_SECONDS = 3600           # default
 ```
 
 ## Further Reading

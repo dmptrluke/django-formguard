@@ -6,6 +6,7 @@ DEFAULTS = {
         'formguard.checks.FieldTrapCheck',
         'formguard.checks.TokenCheck',
         'formguard.checks.JsChallengeCheck',
+        'formguard.checks.InteractionCheck',
     ],
 }
 

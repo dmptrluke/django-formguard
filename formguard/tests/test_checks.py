@@ -12,6 +12,7 @@ from formguard.checks import (
     SIGNING_SALT,
     BaseCheck,
     FieldTrapCheck,
+    InteractionCheck,
     JsChallengeCheck,
     TokenCheck,
     get_checks,
@@ -486,3 +487,50 @@ class JsChallengeCheckTests(SimpleTestCase):
         nonce = JsChallengeCheck._make_nonce()
         assert len(nonce) == 32
         int(nonce, 16)  # should not raise
+
+
+class InteractionCheckTests(SimpleTestCase):
+    def _make_form(self, data):
+        form = MagicMock()
+        form.cleaned_data = data
+        return form
+
+    # check passes when interaction field is set
+    def test_check_passes_with_interaction(self):
+        check = InteractionCheck()
+        form = self._make_form({'fg_ia': '1'})
+        assert check.check(None, form) is False
+
+    # check triggers when interaction field is empty
+    def test_check_triggers_empty(self):
+        check = InteractionCheck()
+        form = self._make_form({'fg_ia': ''})
+        assert check.check(None, form) == 'no interaction detected'
+
+    # check triggers when interaction field is missing
+    def test_check_triggers_missing(self):
+        check = InteractionCheck()
+        form = self._make_form({})
+        assert check.check(None, form) == 'no interaction detected'
+
+    # get_fields returns fg_ia hidden input with data attribute
+    def test_get_fields(self):
+        check = InteractionCheck()
+        fields = check.get_fields()
+        assert 'fg_ia' in fields
+        assert isinstance(fields['fg_ia'].widget, HiddenInput)
+        assert fields['fg_ia'].widget.attrs.get('data-fg-ia') is True
+
+    # get_media includes interaction JS
+    def test_get_media(self):
+        check = InteractionCheck()
+        media = check.get_media()
+        assert 'formguard/formguard-ia.js' in media._js
+
+    # test_data returns valid interaction data
+    def test_test_data(self):
+        check = InteractionCheck()
+        data = check.test_data()
+        assert data == {'fg_ia': '1'}
+        form = self._make_form(data)
+        assert check.check(None, form) is False

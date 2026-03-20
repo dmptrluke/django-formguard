@@ -14,6 +14,7 @@ class GetSettingTests(SimpleTestCase):
             'formguard.checks.FieldTrapCheck',
             'formguard.checks.TokenCheck',
             'formguard.checks.JsChallengeCheck',
+            'formguard.checks.InteractionCheck',
         ]
 
     # user override is respected
