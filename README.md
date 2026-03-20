@@ -1,25 +1,24 @@
 # django-formguard
 
-Invisible, layered form protection for Django. Implements a pluggable check
-pipeline to block bots without user friction.
+Invisible form protection for Django. A pluggable check pipeline that catches
+bots without any user interaction.
 
 ## How It Works
 
 FormGuard runs a pipeline of checks against each form submission:
 
-1. **Field trap** - A hidden honeypot field that should always be empty. Bots
+1. **Field trap** - a hidden honeypot field that should always be empty. Bots
    that fill all visible fields get caught.
-2. **Timing** - A signed timestamp records when the form was loaded. Submissions
-   faster than `FORMGUARD_MIN_SECONDS` are flagged.
-3. **Signature** - The timestamp token is cryptographically signed. Tampered or
-   expired tokens are rejected.
-4. **JS challenge** - A JavaScript snippet sets a hidden field value that bots
-   without JS execution can't fake.
+2. **Token** - a signed timestamp records when the form was loaded. Submissions
+   faster than `MIN_SECONDS` or with tampered/expired tokens are flagged.
+3. **JS challenge** - a random nonce is embedded in the form. JavaScript
+   computes a value from it that bots without JS execution can't produce.
 
-All checks are invisible to real users. The honeypot field is hidden via CSS,
-and the timing/signature checks happen server-side.
+All checks are invisible to real users. Bots receive a fake success response
+indistinguishable from a real one.
 
-Bots receive a fake success response indistinguishable from a real one.
+The pipeline is extensible - each check is a class that owns its form fields,
+media, and settings. See [Custom Checks](docs/custom-checks.md).
 
 ## Installation
 
@@ -53,9 +52,9 @@ class ContactForm(GuardedFormMixin, forms.Form):
 
 ### 2. Include `{{ form.media }}` in your template
 
-FormGuard's CSS and JS are declared as widget media. Include `{{ form.media }}`
-in your template's `<head>` so the honeypot field is hidden and the JS check
-runs.
+FormGuard's CSS and JS are declared as form media. Include `{{ form.media }}`
+in your template's `<head>` so the honeypot field is hidden and the JS
+challenge runs.
 
 ```html
 <!-- contact.html -->
@@ -103,95 +102,34 @@ def contact_view(request, form=None):
     return redirect('/thanks/')
 ```
 
-The decorator passes the bound form as a `form` keyword argument. Set
-`auto_reject=False` to annotate the request instead of auto-redirecting:
-
-```python
-@guard_form(form_class=ContactForm, success_url='/thanks/', auto_reject=False)
-def contact_view(request, form=None):
-    if getattr(request, 'formguard_reasons', None):
-        # bot detected, but you decide what to do
-        return render(request, 'thanks.html')
-    send_email(form.cleaned_data)
-    return redirect('/thanks/')
-```
-
 ## Settings
 
 All settings are optional. Defaults work out of the box.
 
 | Setting | Default | Description |
-|---|---|---|
-| `FORMGUARD_FIELD_NAME` | `'website'` | Honeypot field name (label is derived via `.title()`) |
-| `FORMGUARD_MIN_SECONDS` | `3` | Minimum seconds before a submission is accepted |
-| `FORMGUARD_MAX_SECONDS` | `3600` | Maximum token age before expiry |
-| `FORMGUARD_SUCCESS_MESSAGE` | `None` | Fake success message shown to bots |
-| `FORMGUARD_CHECKS` | `['formguard.checks.field_trap', 'formguard.checks.timing', 'formguard.checks.signature', 'formguard.checks.js_challenge']` | Ordered list of check callables |
+| -- | -- | -- |
+| `FORMGUARD_SUCCESS_MESSAGE` | `None` | Fake success message shown to bots (via Django messages) |
+| `FORMGUARD_CHECKS` | *(see below)* | Ordered list of check class paths |
+| `FORMGUARD_FIELD_TRAP_FIELD_NAME` | `'website'` | Honeypot field name (label derived via `.title()`) |
+| `FORMGUARD_TOKEN_MIN_SECONDS` | `3` | Minimum seconds before a submission is accepted |
+| `FORMGUARD_TOKEN_MAX_SECONDS` | `3600` | Maximum token age before expiry |
 
-## Custom Checks
-
-Write a function that takes `(request, form)` and returns `False` if the
-submission is clean, or a reason string if it should be blocked:
-
-```python
-# myapp/checks.py
-def rate_limit(request, form):
-    ip = request.META.get('REMOTE_ADDR')
-    if is_rate_limited(ip):
-        return 'rate limited'
-    return False
-```
-
-Register it in settings:
+Default checks:
 
 ```python
 FORMGUARD_CHECKS = [
-    'formguard.checks.field_trap',
-    'formguard.checks.timing',
-    'formguard.checks.signature',
-    'formguard.checks.js_challenge',
-    'myapp.checks.rate_limit',
+    'formguard.checks.FieldTrapCheck',
+    'formguard.checks.TokenCheck',
+    'formguard.checks.JsChallengeCheck',
 ]
 ```
 
-If a custom check raises an exception, it is logged and skipped (fail-open).
+## Further Reading
 
-## Signals
-
-The `guard_triggered` signal is emitted whenever a submission is flagged:
-
-```python
-from formguard.signals import guard_triggered
-
-def on_guard_triggered(sender, request, form, reasons, **kwargs):
-    # log to monitoring, increment counter, etc.
-    pass
-
-guard_triggered.connect(on_guard_triggered)
-```
-
-## Testing
-
-FormGuard ships test helpers to make testing guarded forms easy:
-
-```python
-from formguard.test import GuardedFormTestMixin, make_guard_token
-
-class TestContactView(GuardedFormTestMixin, TestCase):
-    def test_submission_works(self):
-        data = {
-            'name': 'Test',
-            'email': 'test@example.com',
-            'message': 'Hello',
-            **self.guard_data(),  # adds valid token + empty honeypot
-        }
-        response = self.client.post('/contact/', data)
-        assert response.status_code == 302
-```
-
-`make_guard_token()` creates a valid signed token for use in test POST data.
-`GuardedFormTestMixin.guard_data()` returns a dict with all required guard
-fields pre-filled.
+- [Custom Checks](docs/custom-checks.md) - write your own checks (CAPTCHA, rate limiting, etc.)
+- [Advanced Usage](docs/advanced-usage.md) - per-form checks, decorator options
+- [Testing](docs/testing.md) - test helpers for guarded forms
+- [Signals](docs/signals.md) - hook into bot detection events
 
 ## CSP Compatibility
 

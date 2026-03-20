@@ -1,43 +1,40 @@
-import time
+from unittest.mock import MagicMock
 
-from django.core import signing
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 
-from formguard.test import GuardedFormTestMixin, make_guard_token
-
-
-class MakeGuardTokenTests(SimpleTestCase):
-    # returns a valid signed token
-    def test_returns_valid_token(self):
-        token = make_guard_token()
-        loaded = signing.loads(token, salt='formguard')
-        assert isinstance(loaded, float)
-
-    # token timestamp is in the past (form appears to have loaded long ago)
-    def test_token_is_old_enough(self):
-        token = make_guard_token()
-        loaded = signing.loads(token, salt='formguard')
-        assert time.time() - loaded >= 10
+from formguard.checks import get_checks, run_checks
+from formguard.test import GuardedFormTestMixin
 
 
 class GuardedFormTestMixinTests(GuardedFormTestMixin, SimpleTestCase):
-    # guard_data returns dict with empty honeypot and valid token
-    def test_guard_data_keys(self):
+    # guard_data aggregates test_data from all active checks
+    def test_guard_data_has_all_check_fields(self):
         data = self.guard_data()
         assert 'website' in data
         assert 'fg_token' in data
-        assert data['website'] == ''
-
-    # token in guard_data is valid
-    def test_guard_data_token_valid(self):
-        data = self.guard_data()
-        loaded = signing.loads(data['fg_token'], salt='formguard')
-        assert isinstance(loaded, float)
-
-    # guard_data includes JS challenge with correct computed value
-    def test_guard_data_includes_js_challenge(self):
-        data = self.guard_data()
+        assert 'fg_nonce' in data
         assert 'fg_js' in data
-        token = data['fg_token']
-        expected = format(sum(ord(c) for c in token) & 0xFFFF, 'x')
-        assert data['fg_js'] == expected
+
+    # guard_data produces valid data (all checks pass)
+    def test_guard_data_passes_all_checks(self):
+        data = self.guard_data()
+        form = MagicMock()
+        form.cleaned_data = data
+        form._checks = get_checks()
+        request = MagicMock()
+        request.META = {'REMOTE_ADDR': '127.0.0.1'}
+        reasons = run_checks(request, form)
+        assert reasons == []
+
+    # overrides are applied on top of generated data
+    def test_overrides_applied(self):
+        data = self.guard_data(website='http://spam.com')
+        assert data['website'] == 'http://spam.com'
+
+    # adapts to custom check configuration
+    @override_settings(FORMGUARD_CHECKS=['formguard.checks.FieldTrapCheck'])
+    def test_adapts_to_check_config(self):
+        data = self.guard_data()
+        assert 'website' in data
+        assert 'fg_token' not in data
+        assert 'fg_nonce' not in data

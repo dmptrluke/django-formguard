@@ -1,41 +1,40 @@
-import time
-
-from django.core import signing
 from django.core.exceptions import ImproperlyConfigured
-from django.forms import CharField, HiddenInput
 
-from formguard.conf import JS_FIELD_NAME, SIGNING_SALT, TOKEN_FIELD_NAME, get_setting
-from formguard.widgets import HoneypotWidget
+from formguard.checks import get_checks, resolve_checks
 
 
 class GuardedFormMixin:
-    """Add a hidden honeypot field and a signed timestamp token to a form."""
+    """Aggregate fields and media from all configured checks."""
+
+    formguard_checks = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        field_name = get_setting('FIELD_NAME')
+        if self.formguard_checks is not None:
+            self._checks = resolve_checks(self.formguard_checks)
+        else:
+            self._checks = get_checks()
+        seen_fields = {}
 
-        if field_name in self.fields:
-            raise ImproperlyConfigured(
-                f"Form already has a field named '{field_name}'. Set FORMGUARD_FIELD_NAME to a different value."
-            )
+        for check in self._checks:
+            for name, field in check.get_fields().items():
+                if name in self.fields:
+                    raise ImproperlyConfigured(
+                        f"Check {check.__class__.__name__} adds field '{name}' "
+                        f'which conflicts with an existing form field.'
+                    )
+                if name in seen_fields:
+                    raise ImproperlyConfigured(
+                        f"Check {check.__class__.__name__} adds field '{name}' "
+                        f'which is already added by {seen_fields[name]}.'
+                    )
+                seen_fields[name] = check.__class__.__name__
+                self.fields[name] = field
 
-        self.fields[field_name] = CharField(
-            required=False,
-            widget=HoneypotWidget(label=field_name.title()),
-        )
-        self.fields[TOKEN_FIELD_NAME] = CharField(
-            required=False,
-            widget=HiddenInput(attrs={'data-fg-token': True}),
-            initial=self._make_token,
-        )
-        self.fields[JS_FIELD_NAME] = CharField(
-            required=False,
-            widget=HiddenInput(attrs={'data-fg-js': True}),
-            initial='',
-        )
-
-    @staticmethod
-    def _make_token():
-        return signing.dumps(time.time(), salt=SIGNING_SALT)
+    @property
+    def media(self):
+        base = super().media
+        for check in self._checks:
+            base += check.get_media()
+        return base

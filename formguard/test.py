@@ -1,26 +1,17 @@
-import time
-
-from django.core import signing
-
-from formguard.conf import JS_FIELD_NAME, SIGNING_SALT, TOKEN_FIELD_NAME, get_setting
-
-
-def make_guard_token(age=60):
-    """Create a valid guard token that appears to have been generated `age` seconds ago."""
-    return signing.dumps(time.time() - age, salt=SIGNING_SALT)
+from formguard.checks import get_checks, resolve_checks
 
 
 class GuardedFormTestMixin:
     """Mixin for TestCase classes that test guarded forms."""
 
-    def guard_data(self, **overrides):
-        """Return a dict with valid guard fields for POST data."""
-        token = make_guard_token()
-        js_value = format(sum(ord(c) for c in token) & 0xFFFF, 'x')
-        data = {
-            get_setting('FIELD_NAME'): '',
-            TOKEN_FIELD_NAME: token,
-            JS_FIELD_NAME: js_value,
-        }
+    def guard_data(self, form_class=None, **overrides):
+        """Return valid guard POST data, using the form's checks if it defines formguard_checks."""
+        if form_class and hasattr(form_class, 'formguard_checks'):
+            checks = resolve_checks(form_class.formguard_checks)
+        else:
+            checks = get_checks()
+        data = {}
+        for check in checks:
+            data.update(check.test_data())
         data.update(overrides)
         return data

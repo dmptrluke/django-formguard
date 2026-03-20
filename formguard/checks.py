@@ -1,79 +1,203 @@
 import logging
+import secrets
 import time
 
+from django.conf import settings
 from django.core import signing
+from django.core.exceptions import ImproperlyConfigured
+from django.forms import CharField, HiddenInput, Media
 from django.utils.module_loading import import_string
 
-from formguard.conf import JS_FIELD_NAME, SIGNING_SALT, TOKEN_FIELD_NAME, get_setting
+from formguard.conf import get_setting
+from formguard.widgets import HoneypotWidget
 
 logger = logging.getLogger('formguard')
 
-
-def field_trap(request, form):
-    """Trigger if the honeypot field has any value (hidden field should always be empty)."""
-    field_name = get_setting('FIELD_NAME')
-    value = form.cleaned_data.get(field_name, '')
-    if value:
-        return 'honeypot field filled'
-    return False
+_UNSET = object()
 
 
-def timing(request, form):
-    """Trigger if the form was submitted faster than MIN_SECONDS after page load."""
-    min_seconds = get_setting('MIN_SECONDS')
-    max_seconds = get_setting('MAX_SECONDS')
-    token_value = form.cleaned_data.get(TOKEN_FIELD_NAME, '')
+class BaseCheck:
+    """Base class for formguard checks."""
 
-    try:
-        loaded = signing.loads(token_value, salt=SIGNING_SALT, max_age=max_seconds)
-        if time.time() - loaded < min_seconds:
-            return 'submitted too fast'
-    except (signing.BadSignature, signing.SignatureExpired, TypeError):
-        return 'invalid or missing token'
+    fail_open = True
+    settings_prefix = ''
+    defaults = {}
 
-    return False
+    def get_fields(self):
+        """Return form fields to inject, as a dict of {name: field}."""
+        return {}
 
+    def get_media(self):
+        """Return extra media (JS/CSS) required by this check."""
+        return Media()
 
-def signature(request, form):
-    """Trigger if the signed token is missing, tampered, or expired."""
-    max_seconds = get_setting('MAX_SECONDS')
-    token_value = form.cleaned_data.get(TOKEN_FIELD_NAME, '')
+    def check(self, request, form):
+        """Run the check. Return a reason string if triggered, False otherwise."""
+        raise NotImplementedError
 
-    try:
-        signing.loads(token_value, salt=SIGNING_SALT, max_age=max_seconds)
-    except (signing.BadSignature, signing.SignatureExpired, TypeError):
-        return 'invalid or expired token'
+    def test_data(self):
+        """Return form data that will pass this check in tests."""
+        return {}
 
-    return False
+    def get_setting(self, name):
+        """Read a check-scoped setting from Django settings, falling back to defaults."""
+        if self.settings_prefix:
+            setting_name = f'FORMGUARD_{self.settings_prefix}_{name}'
+        else:
+            setting_name = f'FORMGUARD_{name}'
 
+        value = getattr(settings, setting_name, _UNSET)
+        if value is not _UNSET:
+            return value
 
-def js_challenge(request, form):
-    """Trigger if the JS challenge field doesn't match the expected token prefix."""
-    token_value = form.cleaned_data.get(TOKEN_FIELD_NAME, '')
-    js_value = form.cleaned_data.get(JS_FIELD_NAME, '')
+        if name in self.defaults:
+            return self.defaults[name]
 
-    if not js_value or not token_value:
-        return 'js challenge failed'
-
-    expected = sum(ord(c) for c in token_value) & 0xFFFF
-    if js_value != format(expected, 'x'):
-        return 'js challenge mismatch'
-
-    return False
+        raise ImproperlyConfigured(f'{setting_name} is not configured and has no default')
 
 
-def run_checks(request, form):
-    """Run all configured checks. Return list of reason strings for triggered checks."""
-    check_paths = get_setting('CHECKS')
-    reasons = []
+SIGNING_SALT = 'formguard'
+
+
+class FieldTrapCheck(BaseCheck):
+    settings_prefix = 'FIELD_TRAP'
+    defaults = {'FIELD_NAME': 'website'}
+
+    def get_fields(self):
+        field_name = self.get_setting('FIELD_NAME')
+        return {
+            field_name: CharField(
+                required=False,
+                widget=HoneypotWidget(label=field_name.title()),
+            ),
+        }
+
+    def check(self, request, form):
+        field_name = self.get_setting('FIELD_NAME')
+        if form.cleaned_data.get(field_name, ''):
+            return 'honeypot field filled'
+        return False
+
+    def test_data(self):
+        return {self.get_setting('FIELD_NAME'): ''}
+
+
+class TokenCheck(BaseCheck):
+    settings_prefix = 'TOKEN'
+    defaults = {'MIN_SECONDS': 3, 'MAX_SECONDS': 3600}
+
+    def get_fields(self):
+        return {
+            'fg_token': CharField(
+                required=False,
+                widget=HiddenInput(attrs={'data-fg-token': True}),
+                initial=self._make_token,
+            ),
+        }
+
+    def check(self, request, form):
+        min_seconds = self.get_setting('MIN_SECONDS')
+        max_seconds = self.get_setting('MAX_SECONDS')
+        token_value = form.cleaned_data.get('fg_token', '')
+        try:
+            loaded = signing.loads(token_value, salt=SIGNING_SALT, max_age=max_seconds)
+            if time.time() - loaded < min_seconds:
+                return 'submitted too fast'
+        except (signing.BadSignature, signing.SignatureExpired, TypeError):
+            return 'invalid or expired token'
+        return False
+
+    def test_data(self):
+        return {'fg_token': self._make_token(age=60)}
+
+    @staticmethod
+    def _make_token(age=0):
+        return signing.dumps(time.time() - age, salt=SIGNING_SALT)
+
+
+class JsChallengeCheck(BaseCheck):
+    def get_fields(self):
+        return {
+            'fg_nonce': CharField(
+                required=False,
+                widget=HiddenInput(attrs={'data-fg-nonce': True}),
+                initial=self._make_nonce,
+            ),
+            'fg_js': CharField(
+                required=False,
+                widget=HiddenInput(attrs={'data-fg-js': True}),
+                initial='',
+            ),
+        }
+
+    def get_media(self):
+        return Media(js=('formguard/formguard.js',))
+
+    def check(self, request, form):
+        nonce_value = form.cleaned_data.get('fg_nonce', '')
+        js_value = form.cleaned_data.get('fg_js', '')
+        if not js_value or not nonce_value:
+            return 'js challenge failed'
+        expected = sum(ord(c) for c in nonce_value) & 0xFFFF
+        if js_value != format(expected, 'x'):
+            return 'js challenge mismatch'
+        return False
+
+    def test_data(self):
+        nonce = self._make_nonce()
+        js_value = format(sum(ord(c) for c in nonce) & 0xFFFF, 'x')
+        return {'fg_nonce': nonce, 'fg_js': js_value}
+
+    @staticmethod
+    def _make_nonce():
+        return secrets.token_hex(16)
+
+
+def resolve_checks(check_paths):
+    """Import and instantiate check classes from a list of dotted paths."""
+    checks = []
 
     for path in check_paths:
         try:
-            check_fn = import_string(path)
-            result = check_fn(request, form)
+            cls = import_string(path)
+        except ImportError as e:
+            raise ImproperlyConfigured(f'Could not import formguard check {path!r}: {e}') from e
+
+        if not (isinstance(cls, type) and issubclass(cls, BaseCheck)):
+            raise ImproperlyConfigured(f'{path!r} is not a BaseCheck subclass')
+
+        checks.append(cls())
+
+    return checks
+
+
+def get_checks():
+    """Import and instantiate check classes from the global FORMGUARD_CHECKS setting."""
+    return resolve_checks(get_setting('CHECKS'))
+
+
+def run_checks(request, form):
+    """Run all checks attached to the form. Return list of reason strings."""
+    reasons = []
+
+    for check in form._checks:
+        try:
+            result = check.check(request, form)
             if result:
                 reasons.append(result)
         except Exception:
-            logger.exception('formguard check %s raised an exception, skipping', path)
+            if check.fail_open:
+                logger.exception(
+                    'formguard check %s.%s raised an exception, skipping',
+                    type(check).__module__,
+                    type(check).__qualname__,
+                )
+            else:
+                logger.exception(
+                    'formguard check %s.%s raised an exception, failing closed',
+                    type(check).__module__,
+                    type(check).__qualname__,
+                )
+                reasons.append('check error')
 
     return reasons

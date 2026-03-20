@@ -25,11 +25,10 @@ class HoneypotWidgetTests(SimpleTestCase):
         assert '<label' in html
         assert 'Website' in html
 
-    # widget declares CSS and JS in Media
+    # widget declares CSS in Media
     def test_media_declaration(self):
         widget = HoneypotWidget()
         assert 'formguard/formguard.css' in str(widget.media)
-        assert 'formguard/formguard.js' in str(widget.media)
 
     # widget uses custom template
     def test_template_name(self):

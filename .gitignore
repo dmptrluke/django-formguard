@@ -6,3 +6,4 @@ build/
 .venv/
 .ruff_cache/
 *.sqlite3
+TODOS.md

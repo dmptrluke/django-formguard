@@ -8,7 +8,6 @@ class HoneypotWidget(TextInput):
 
     class Media:
         css = {'all': ('formguard/formguard.css',)}
-        js = ('formguard/formguard.js',)
 
     def __init__(self, label='Website', attrs=None):
         self.label = label

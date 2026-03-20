@@ -6,7 +6,7 @@ from django.core import signing
 from django.test import TestCase, override_settings
 
 from formguard.signals import guard_triggered
-from formguard.test import GuardedFormTestMixin, make_guard_token
+from formguard.test import GuardedFormTestMixin
 
 
 class GuardedFormViewMixinTests(GuardedFormTestMixin, TestCase):
@@ -21,10 +21,7 @@ class GuardedFormViewMixinTests(GuardedFormTestMixin, TestCase):
 
     # clean submission passes through and signal is NOT emitted
     def test_clean_submission(self):
-        data = {
-            'name': 'Alice',
-            **self.guard_data(),
-        }
+        data = {'name': 'Alice', **self.guard_data()}
         response = self.client.post('/test-form/', data)
         assert response.status_code == 302
         assert response.url == '/success/'
@@ -32,11 +29,7 @@ class GuardedFormViewMixinTests(GuardedFormTestMixin, TestCase):
 
     # honeypot field filled returns fake success and emits signal
     def test_honeypot_triggers_fake_success(self):
-        data = {
-            'name': 'Bot',
-            'website': 'http://spam.com',
-            'fg_token': make_guard_token(),
-        }
+        data = {'name': 'Bot', **self.guard_data(website='http://spam.com')}
         response = self.client.post('/test-form/', data)
         assert response.status_code == 302
         assert len(self.signal_received) == 1
@@ -45,10 +38,7 @@ class GuardedFormViewMixinTests(GuardedFormTestMixin, TestCase):
     def test_fast_submission_triggers(self):
         now = 1000.0
         token = signing.dumps(now, salt='formguard')
-        data = {
-            'name': 'Bot',
-            'fg_token': token,
-        }
+        data = {'name': 'Bot', **self.guard_data(fg_token=token)}
         with patch('formguard.checks.time.time', return_value=now + 1):
             response = self.client.post('/test-form/', data)
         assert response.status_code == 302
@@ -56,10 +46,7 @@ class GuardedFormViewMixinTests(GuardedFormTestMixin, TestCase):
 
     # bad signature returns fake success
     def test_bad_signature_triggers(self):
-        data = {
-            'name': 'Bot',
-            'fg_token': 'tampered',
-        }
+        data = {'name': 'Bot', **self.guard_data(fg_token='tampered')}
         response = self.client.post('/test-form/', data)
         assert response.status_code == 302
         assert len(self.signal_received) == 1
@@ -67,22 +54,14 @@ class GuardedFormViewMixinTests(GuardedFormTestMixin, TestCase):
     # bot_response includes success message when configured
     @override_settings(FORMGUARD_SUCCESS_MESSAGE='Thanks!')
     def test_bot_response_includes_message(self):
-        data = {
-            'name': 'Bot',
-            'website': 'http://spam.com',
-            'fg_token': make_guard_token(),
-        }
+        data = {'name': 'Bot', **self.guard_data(website='http://spam.com')}
         response = self.client.post('/test-form/', data)
         messages = list(get_messages(response.wsgi_request))
         assert any('Thanks!' in str(m) for m in messages)
 
     # no message when SUCCESS_MESSAGE is None
     def test_no_message_when_none(self):
-        data = {
-            'name': 'Bot',
-            'website': 'http://spam.com',
-            'fg_token': make_guard_token(),
-        }
+        data = {'name': 'Bot', **self.guard_data(website='http://spam.com')}
         response = self.client.post('/test-form/', data)
         messages = list(get_messages(response.wsgi_request))
         assert len(messages) == 0
@@ -90,10 +69,6 @@ class GuardedFormViewMixinTests(GuardedFormTestMixin, TestCase):
     # bot detection is logged with IP address
     def test_bot_logged(self):
         with self.assertLogs('formguard', level=logging.WARNING) as cm:
-            data = {
-                'name': 'Bot',
-                'website': 'http://spam.com',
-                'fg_token': make_guard_token(),
-            }
+            data = {'name': 'Bot', **self.guard_data(website='http://spam.com')}
             self.client.post('/test-form/', data)
         assert any('formguard' in msg.lower() for msg in cm.output)
