@@ -3,6 +3,8 @@
 Invisible form protection for Django. A pluggable check pipeline that catches
 bots without any user interaction.
 
+**WARNING**: This library is still under development. Expect breaking changes until 1.0.0.
+
 ## How It Works
 
 FormGuard runs a series of checks against each form submission:
@@ -66,8 +68,8 @@ checks load.
 </body>
 ```
 
-If you render fields manually, use
-`{{ form.guard_fields }}` to include all guard fields.
+If you render fields manually, include
+`{{ form.guard_fields }}` to add the FormGuard fields.
 
 ### 3. Check submissions in your view
 
@@ -89,22 +91,11 @@ class ContactView(GuardedFormViewMixin, FormView):
         return super().form_valid(form)
 ```
 
-The mixin passes `request` to the form automatically. If a check fails, the form
-re-renders with errors. Set `stealth_reject = True` on the view to redirect bots
-to a fake success page instead.
+If a check fails, the form returns an error message. Set `stealth_reject = True`
+on the view to redirect bots to a fake success page instead.
 
-**Function-based views** - pass `request` when constructing the form:
-
-```python
-def contact_view(request):
-    form = ContactForm(request.POST or None, request=request)
-    if request.method == 'POST' and form.is_valid():
-        send_email(form.cleaned_data)
-        return redirect('/thanks/')
-    return render(request, 'contact.html', {'form': form})
-```
-
-
+**Function-based views** - For function based views and other options see
+[Advanced Usage](docs/advanced-usage.md)
 
 ## Settings
 
