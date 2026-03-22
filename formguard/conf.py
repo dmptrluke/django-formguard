@@ -1,7 +1,6 @@
 from django.conf import settings
 
 DEFAULTS = {
-    'SUCCESS_MESSAGE': None,
     'CHECKS': [
         'formguard.checks.FieldTrapCheck',
         'formguard.checks.TokenCheck',

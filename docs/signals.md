@@ -2,8 +2,8 @@
 
 ## guard_triggered
 
-Emitted whenever a submission is flagged as a bot. Use it for logging,
-monitoring, or rate limiting.
+Emitted during `is_valid()` whenever a submission is flagged by guard checks.
+Use it for logging, monitoring, or rate limiting.
 
 ```python
 from formguard.signals import guard_triggered

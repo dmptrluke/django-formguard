@@ -12,8 +12,10 @@ from formguard.checks import BaseCheck
 
 
 class RateLimitCheck(BaseCheck):
-    def check(self, request, form):
-        ip = request.META.get('REMOTE_ADDR')
+    message = 'Too many submissions. Please wait and try again.'
+
+    def check(self, form):
+        ip = form.request.META.get('REMOTE_ADDR')
         if is_rate_limited(ip):
             return 'rate limited'
         return False
@@ -47,7 +49,7 @@ Every check can override these methods:
 
 | Method | Default | Purpose |
 |---|---|---|
-| `check(request, form)` | `NotImplementedError` | Return `False` if clean, or a reason string if triggered |
+| `check(form)` | `NotImplementedError` | Return `False` if clean, or a reason string if triggered. Access `form.request` for the current request. |
 | `get_fields()` | `{}` | Return `{name: Field}` dict of form fields this check needs |
 | `get_media()` | `Media()` | Return extra CSS/JS this check needs (beyond widget media) |
 | `test_data()` | `{}` | Return valid POST data for this check's fields (used by test helpers) |
@@ -57,7 +59,8 @@ And these class attributes:
 
 | Attribute | Default | Purpose |
 |---|---|---|
-| `fail_open` | `True` | If `True`, exceptions in `check()` are logged and skipped. If `False`, exceptions count as triggered. |
+| `fail_open` | `False` | If `True`, exceptions in `check()` are logged and skipped. If `False`, exceptions count as triggered. |
+| `message` | `'Something went wrong. Please try again.'` | User-facing error message added to `form.errors` when this check triggers. |
 | `settings_prefix` | `''` | Prefix for Django settings lookup (e.g. `'MYCHECK'` reads `FORMGUARD_MYCHECK_*`) |
 | `defaults` | `{}` | Default values for check-scoped settings |
 
@@ -78,7 +81,7 @@ class TurnstileCheck(BaseCheck):
         'SITE_KEY': None,
         'SECRET_KEY': None,
     }
-    fail_open = False
+    message = 'Please complete the verification.'
 
     def get_fields(self):
         return {
@@ -93,7 +96,7 @@ class TurnstileCheck(BaseCheck):
             js=('https://challenges.cloudflare.com/turnstile/v0/api.js',),
         )
 
-    def check(self, request, form):
+    def check(self, form):
         token = form.cleaned_data.get('cf-turnstile-response', '')
         if not token:
             return 'turnstile not completed'
@@ -127,7 +130,7 @@ class MyCheck(BaseCheck):
         'API_KEY': None,  # no default -- must be configured
     }
 
-    def check(self, request, form):
+    def check(self, form):
         threshold = self.get_setting('THRESHOLD')  # reads FORMGUARD_MYCHECK_THRESHOLD
         api_key = self.get_setting('API_KEY')       # reads FORMGUARD_MYCHECK_API_KEY
         ...
@@ -135,10 +138,13 @@ class MyCheck(BaseCheck):
 
 ## Fail Modes
 
-By default, checks fail open: if `check()` raises an exception, it's logged
-and the check is skipped. Set `fail_open = False` for checks where a failure
-should block the submission (e.g. a CAPTCHA service being unreachable should
-not silently let all bots through).
+By default, checks fail closed: if `check()` raises an exception, it's logged
+and the submission is blocked. Set `fail_open = True` for checks where a failure
+should not block real users (e.g. the built-in honeypot and timing checks).
+
+The built-in checks (`FieldTrapCheck`, `TokenCheck`, `JsChallengeCheck`,
+`InteractionCheck`) all set `fail_open = True` because they are invisible to
+users and should never block a legitimate submission.
 
 ## Testing
 

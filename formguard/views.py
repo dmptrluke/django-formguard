@@ -1,21 +1,22 @@
 from django.http import HttpResponseRedirect
 
-from formguard.checks import run_checks
-from formguard.utils import add_success_message, handle_bot
-
 
 class GuardedFormViewMixin:
-    """Run guard checks on form submission. Call is_bot() in form_valid()."""
+    """Pass request to guarded forms and optionally stealth-reject bots."""
 
-    def is_bot(self, form):
-        """Run all configured checks. Return True if any triggered."""
-        reasons = run_checks(self.request, form)
-        if reasons:
-            handle_bot(self.__class__, self.request, form, reasons)
-            return True
-        return False
+    stealth_reject = False
+    stealth_message = None
 
-    def bot_response(self):
-        """Return a response indistinguishable from a real success."""
-        add_success_message(self.request)
-        return HttpResponseRedirect(self.get_success_url())
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['request'] = self.request
+        return kwargs
+
+    def form_invalid(self, form):
+        if self.stealth_reject and form.guard_failures:
+            if self.stealth_message:
+                from django.contrib import messages
+
+                messages.success(self.request, self.stealth_message)
+            return HttpResponseRedirect(self.get_success_url())
+        return super().form_invalid(form)

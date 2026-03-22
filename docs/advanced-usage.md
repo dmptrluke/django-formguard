@@ -40,20 +40,38 @@ When testing forms with per-form checks, pass the form class to
 data = self.guard_data(form_class=ContactForm)
 ```
 
-## Decorator Options
+## Stealth Reject
 
-The `@guard_form` decorator auto-redirects bots by default. Set
-`auto_reject=False` to annotate the request instead, so you can handle
-bot detection yourself:
+By default, guard check failures re-render the form with errors like any
+other form validation. To silently redirect bots to a fake success page
+instead, set `stealth_reject = True` on the view:
 
 ```python
-@guard_form(form_class=ContactForm, success_url='/thanks/', auto_reject=False)
-def contact_view(request, form=None):
-    if getattr(request, 'formguard_reasons', None):
-        # bot detected, but you decide what to do
-        return render(request, 'thanks.html')
-    send_email(form.cleaned_data)
-    return redirect('/thanks/')
+class ContactView(GuardedFormViewMixin, FormView):
+    form_class = ContactForm
+    template_name = 'contact.html'
+    success_url = '/thanks/'
+    stealth_reject = True
+    stealth_message = 'Your message has been sent.'  # optional
 ```
 
-The decorator passes the bound form as a `form` keyword argument.
+With `stealth_reject = True`, bots get a redirect to `success_url`. Set
+`stealth_message` to add a Django success message to the redirect (making
+it indistinguishable from a real submission). Regular validation errors
+(e.g. missing required fields) still re-render the form normally.
+
+## Function-Based Views
+
+Pass `request` when constructing the form:
+
+```python
+def contact_view(request):
+    form = ContactForm(request.POST or None, request=request)
+    if request.method == 'POST' and form.is_valid():
+        send_email(form.cleaned_data)
+        return redirect('/thanks/')
+    return render(request, 'contact.html', {'form': form})
+```
+
+Guard checks run automatically inside `is_valid()`. If any check triggers,
+the form is invalid and `form.guard_failures` contains the reason strings.

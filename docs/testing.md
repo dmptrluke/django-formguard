@@ -56,7 +56,7 @@ class MyCheck(BaseCheck):
     def test_data(self):
         return {'my_field': 'valid-value'}
 
-    def check(self, request, form):
+    def check(self, form):
         if form.cleaned_data.get('my_field') != 'valid-value':
             return 'invalid'
         return False

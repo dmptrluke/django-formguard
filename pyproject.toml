@@ -36,6 +36,7 @@ path = "formguard/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["formguard"]
+exclude = ["formguard/tests", "formguard/templates/formguard/tests"]
 
 [project.urls]
 Homepage = "https://github.com/dmptrluke/django-formguard"

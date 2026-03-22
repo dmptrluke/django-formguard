@@ -3,13 +3,15 @@ from unittest.mock import patch
 
 from django.contrib.messages import get_messages
 from django.core import signing
-from django.test import TestCase, override_settings
+from django.test import TestCase
 
 from formguard.signals import guard_triggered
 from formguard.test import GuardedFormTestMixin
 
 
-class GuardedFormViewMixinTests(GuardedFormTestMixin, TestCase):
+class GuardedFormViewTests(GuardedFormTestMixin, TestCase):
+    """Tests for the default view (stealth_reject=False) -- errors re-render the form."""
+
     def setUp(self):
         self.signal_received = []
 
@@ -27,44 +29,22 @@ class GuardedFormViewMixinTests(GuardedFormTestMixin, TestCase):
         assert response.url == '/success/'
         assert len(self.signal_received) == 0
 
-    # honeypot field filled returns fake success and emits signal
-    def test_honeypot_triggers_fake_success(self):
+    # honeypot field filled re-renders form with errors (not stealth)
+    def test_honeypot_rerenders_with_errors(self):
         data = {'name': 'Bot', **self.guard_data(website='http://spam.com')}
         response = self.client.post('/test-form/', data)
-        assert response.status_code == 302
+        assert response.status_code == 200  # re-rendered form
         assert len(self.signal_received) == 1
 
-    # fast submission returns fake success
-    def test_fast_submission_triggers(self):
+    # fast submission re-renders form with errors
+    def test_fast_submission_rerenders(self):
         now = 1000.0
         token = signing.dumps(now, salt='formguard')
         data = {'name': 'Bot', **self.guard_data(fg_token=token)}
         with patch('formguard.checks.time.time', return_value=now + 1):
             response = self.client.post('/test-form/', data)
-        assert response.status_code == 302
+        assert response.status_code == 200  # re-rendered form
         assert len(self.signal_received) == 1
-
-    # bad signature returns fake success
-    def test_bad_signature_triggers(self):
-        data = {'name': 'Bot', **self.guard_data(fg_token='tampered')}
-        response = self.client.post('/test-form/', data)
-        assert response.status_code == 302
-        assert len(self.signal_received) == 1
-
-    # bot_response includes success message when configured
-    @override_settings(FORMGUARD_SUCCESS_MESSAGE='Thanks!')
-    def test_bot_response_includes_message(self):
-        data = {'name': 'Bot', **self.guard_data(website='http://spam.com')}
-        response = self.client.post('/test-form/', data)
-        messages = list(get_messages(response.wsgi_request))
-        assert any('Thanks!' in str(m) for m in messages)
-
-    # no message when SUCCESS_MESSAGE is None
-    def test_no_message_when_none(self):
-        data = {'name': 'Bot', **self.guard_data(website='http://spam.com')}
-        response = self.client.post('/test-form/', data)
-        messages = list(get_messages(response.wsgi_request))
-        assert len(messages) == 0
 
     # bot detection is logged with IP address
     def test_bot_logged(self):
@@ -72,3 +52,65 @@ class GuardedFormViewMixinTests(GuardedFormTestMixin, TestCase):
             data = {'name': 'Bot', **self.guard_data(website='http://spam.com')}
             self.client.post('/test-form/', data)
         assert any('formguard' in msg.lower() for msg in cm.output)
+
+    # get_form_kwargs injects request into the form
+    def test_get_form_kwargs_injects_request(self):
+        data = {'name': 'Alice', **self.guard_data()}
+        # if request wasn't injected, is_valid() would raise ImproperlyConfigured
+        response = self.client.post('/test-form/', data)
+        assert response.status_code == 302
+
+
+class StealthRejectViewTests(GuardedFormTestMixin, TestCase):
+    """Tests for stealth_reject=True -- bots get fake success."""
+
+    def setUp(self):
+        self.signal_received = []
+
+        def handler(sender, **kwargs):
+            self.signal_received.append(kwargs)
+
+        guard_triggered.connect(handler)
+        self.addCleanup(guard_triggered.disconnect, handler)
+
+    # clean submission passes through normally
+    def test_clean_submission(self):
+        data = {'name': 'Alice', **self.guard_data()}
+        response = self.client.post('/test-stealth/', data)
+        assert response.status_code == 302
+        assert response.url == '/success/'
+        assert len(self.signal_received) == 0
+
+    # honeypot triggers fake success redirect
+    def test_honeypot_triggers_fake_success(self):
+        data = {'name': 'Bot', **self.guard_data(website='http://spam.com')}
+        response = self.client.post('/test-stealth/', data)
+        assert response.status_code == 302
+        assert len(self.signal_received) == 1
+
+    # bad signature triggers fake success
+    def test_bad_signature_triggers(self):
+        data = {'name': 'Bot', **self.guard_data(fg_token='tampered')}
+        response = self.client.post('/test-stealth/', data)
+        assert response.status_code == 302
+        assert len(self.signal_received) == 1
+
+    # stealth_message adds success message to the redirect
+    def test_stealth_message(self):
+        data = {'name': 'Bot', **self.guard_data(website='http://spam.com')}
+        response = self.client.post('/test-stealth-msg/', data)
+        msgs = list(get_messages(response.wsgi_request))
+        assert any('Thanks!' in str(m) for m in msgs)
+
+    # no message when stealth_message is not set
+    def test_no_message_when_not_set(self):
+        data = {'name': 'Bot', **self.guard_data(website='http://spam.com')}
+        response = self.client.post('/test-stealth/', data)
+        msgs = list(get_messages(response.wsgi_request))
+        assert len(msgs) == 0
+
+    # invalid form (missing required field) without guard failure re-renders normally
+    def test_invalid_form_no_stealth(self):
+        data = {**self.guard_data()}  # missing 'name'
+        response = self.client.post('/test-stealth/', data)
+        assert response.status_code == 200  # re-rendered, not stealth redirect

@@ -19,7 +19,8 @@ _UNSET = object()
 class BaseCheck:
     """Base class for formguard checks."""
 
-    fail_open = True
+    fail_open = False
+    message = 'Something went wrong. Please try again.'
     settings_prefix = ''
     defaults = {}
 
@@ -31,7 +32,7 @@ class BaseCheck:
         """Return extra media (JS/CSS) required by this check."""
         return Media()
 
-    def check(self, request, form):
+    def check(self, form):
         """Run the check. Return a reason string if triggered, False otherwise."""
         raise NotImplementedError
 
@@ -62,6 +63,7 @@ SIGNING_SALT = 'formguard'
 class FieldTrapCheck(BaseCheck):
     """Hidden honeypot field that should always be empty. Bots that fill all visible fields get caught."""
 
+    fail_open = True
     settings_prefix = 'FIELD_TRAP'
     defaults = {'FIELD_NAME': 'website'}
 
@@ -74,7 +76,7 @@ class FieldTrapCheck(BaseCheck):
             ),
         }
 
-    def check(self, request, form):
+    def check(self, form):
         field_name = self.get_setting('FIELD_NAME')
         if form.cleaned_data.get(field_name, ''):
             return 'honeypot field filled'
@@ -90,6 +92,7 @@ class TokenCheck(BaseCheck):
     Catches submissions faster than MIN_SECONDS or with tampered/expired tokens.
     """
 
+    fail_open = True
     settings_prefix = 'TOKEN'
     defaults = {'MIN_SECONDS': 3, 'MAX_SECONDS': 3600}
 
@@ -102,7 +105,7 @@ class TokenCheck(BaseCheck):
             ),
         }
 
-    def check(self, request, form):
+    def check(self, form):
         min_seconds = self.get_setting('MIN_SECONDS')
         max_seconds = self.get_setting('MAX_SECONDS')
         token_value = form.cleaned_data.get('fg_token', '')
@@ -125,6 +128,8 @@ class TokenCheck(BaseCheck):
 class JsChallengeCheck(BaseCheck):
     """Embed a random nonce in the form. JavaScript computes a value from it that bots without JS can't produce."""
 
+    fail_open = True
+
     def get_fields(self):
         return {
             'fg_nonce': CharField(
@@ -142,7 +147,7 @@ class JsChallengeCheck(BaseCheck):
     def get_media(self):
         return Media(js=('formguard/formguard.js',))
 
-    def check(self, request, form):
+    def check(self, form):
         nonce_value = form.cleaned_data.get('fg_nonce', '')
         js_value = form.cleaned_data.get('fg_js', '')
         if not js_value or not nonce_value:
@@ -165,6 +170,8 @@ class JsChallengeCheck(BaseCheck):
 class InteractionCheck(BaseCheck):
     """Detect real user interaction via keydown, focusin, and pointerdown events. Accessible to screen readers."""
 
+    fail_open = True
+
     def get_fields(self):
         return {
             'fg_ia': CharField(
@@ -177,7 +184,7 @@ class InteractionCheck(BaseCheck):
     def get_media(self):
         return Media(js=('formguard/formguard-ia.js',))
 
-    def check(self, request, form):
+    def check(self, form):
         if not form.cleaned_data.get('fg_ia'):
             return 'no interaction detected'
         return False
@@ -209,13 +216,13 @@ def get_checks():
     return resolve_checks(get_setting('CHECKS'))
 
 
-def run_checks(request, form):
+def run_checks(form):
     """Run all checks attached to the form. Return list of reason strings."""
     reasons = []
 
     for check in form._checks:
         try:
-            result = check.check(request, form)
+            result = check.check(form)
             if result:
                 reasons.append(result)
         except Exception:

@@ -12,7 +12,9 @@ FormGuard runs a series of checks against each form submission:
 3. **JS challenge** - nonce computation that requires JavaScript execution
 4. **Interaction proof** - detects real user input (accessible to screen readers)
 
-All checks are invisible to real users. Bots get a fake success response.
+All checks are invisible to real users. Check failures are handled as standard
+form validation errors, with an optional stealth-reject mode for honeypot-style
+protection.
 
 FormGuard is extensible - new checks can be added easily. See [Custom Checks](docs/custom-checks.md).
 
@@ -69,6 +71,8 @@ If you render fields manually, use
 
 ### 3. Check submissions in your view
 
+Guard checks run inside `is_valid()`, so your view uses standard Django patterns.
+
 **Class-based views** - use `GuardedFormViewMixin`:
 
 ```python
@@ -81,22 +85,23 @@ class ContactView(GuardedFormViewMixin, FormView):
     success_url = '/thanks/'
 
     def form_valid(self, form):
-        if self.is_bot(form):
-            return self.bot_response()
         send_email(form.cleaned_data)
         return super().form_valid(form)
 ```
 
-**Function-based views** - use the `@guard_form` decorator:
+The mixin passes `request` to the form automatically. If a check fails, the form
+re-renders with errors. Set `stealth_reject = True` on the view to redirect bots
+to a fake success page instead.
+
+**Function-based views** - pass `request` when constructing the form:
 
 ```python
-from formguard.decorators import guard_form
-
-@guard_form(form_class=ContactForm, success_url='/thanks/')
-def contact_view(request, form=None):
-    # only reached if the form is clean (bots were already redirected)
-    send_email(form.cleaned_data)
-    return redirect('/thanks/')
+def contact_view(request):
+    form = ContactForm(request.POST or None, request=request)
+    if request.method == 'POST' and form.is_valid():
+        send_email(form.cleaned_data)
+        return redirect('/thanks/')
+    return render(request, 'contact.html', {'form': form})
 ```
 
 
@@ -107,9 +112,6 @@ All settings are optional. Defaults work out of the box. All four built-in
 checks are enabled by default.
 
 ```python
-# fake success message shown to bots (via Django messages)
-FORMGUARD_SUCCESS_MESSAGE = 'Your message has been sent.'
-
 # add a custom check alongside the defaults
 from formguard.conf import DEFAULTS
 FORMGUARD_CHECKS = DEFAULTS['CHECKS'] + [
@@ -125,7 +127,7 @@ FORMGUARD_TOKEN_MAX_SECONDS = 3600           # default
 ## Further Reading
 
 - [Custom Checks](docs/custom-checks.md) - write your own checks (CAPTCHA, rate limiting, etc.)
-- [Advanced Usage](docs/advanced-usage.md) - per-form checks, decorator options
+- [Advanced Usage](docs/advanced-usage.md) - per-form checks, stealth reject, FBV pattern
 - [Testing](docs/testing.md) - test helpers for guarded forms
 - [Signals](docs/signals.md) - hook into bot detection events
 

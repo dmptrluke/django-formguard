@@ -1,13 +1,10 @@
-from django.test import SimpleTestCase, override_settings
+from django.test import SimpleTestCase
 
 from formguard.conf import get_setting
 
 
 class GetSettingTests(SimpleTestCase):
-    # returns default when setting is not configured
-    def test_default_success_message(self):
-        assert get_setting('SUCCESS_MESSAGE') is None
-
+    # returns default check list
     def test_default_checks(self):
         checks = get_setting('CHECKS')
         assert checks == [
@@ -16,8 +13,3 @@ class GetSettingTests(SimpleTestCase):
             'formguard.checks.JsChallengeCheck',
             'formguard.checks.InteractionCheck',
         ]
-
-    # user override is respected
-    @override_settings(FORMGUARD_SUCCESS_MESSAGE='Thank you!')
-    def test_override_setting(self):
-        assert get_setting('SUCCESS_MESSAGE') == 'Thank you!'

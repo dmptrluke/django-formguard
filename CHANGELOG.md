@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0
+
+**Breaking:** guard checks run as form validation.
+
+- Checks run inside `is_valid()` after field validation, adding to `form.errors` and `form.guard_failures`
+- `check(self, form)` replaces `check(self, request, form)` (access `form.request` instead)
+- `fail_open` default is now `False`; built-in checks explicitly set `True`
+- `BaseCheck.message` for user-facing error text
+- `stealth_reject` and `stealth_message` on `GuardedFormViewMixin` replace `is_bot()`/`bot_response()`/`FORMGUARD_SUCCESS_MESSAGE`
+- `@guard_form` decorator removed
+
 ## 0.3.0
 
 - `InteractionCheck` - detects mouse, keyboard, or touch interaction; accessible to screen readers
@@ -24,15 +35,6 @@
 - Check-scoped settings via `settings_prefix` and `defaults`
 - Documentation split into `docs/` (custom checks, advanced usage, testing, signals)
 - `make_guard_token()` removed
-
-**Migrating:**
-
-- `FORMGUARD_CHECKS` paths changed:
-  - `field_trap` -> `FieldTrapCheck`
-  - `timing` + `signature` -> `TokenCheck`
-  - `js_challenge` -> `JsChallengeCheck`
-- Settings renamed: `FORMGUARD_FIELD_NAME` -> `FORMGUARD_FIELD_TRAP_FIELD_NAME`, `FORMGUARD_MIN_SECONDS` -> `FORMGUARD_TOKEN_MIN_SECONDS`, `FORMGUARD_MAX_SECONDS` -> `FORMGUARD_TOKEN_MAX_SECONDS`
-- Custom checks must subclass `BaseCheck` instead of being plain functions
 
 ## 0.1.1
 

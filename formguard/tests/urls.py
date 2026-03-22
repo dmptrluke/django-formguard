@@ -1,9 +1,9 @@
 from django.urls import path
 
-from formguard.tests.views import TestGuardedView, test_fbv, test_fbv_annotate
+from formguard.tests.views import TestGuardedView, TestStealthMessageView, TestStealthView
 
 urlpatterns = [
     path('test-form/', TestGuardedView.as_view(), name='test-form'),
-    path('test-fbv/', test_fbv, name='test-fbv'),
-    path('test-fbv-annotate/', test_fbv_annotate, name='test-fbv-annotate'),
+    path('test-stealth/', TestStealthView.as_view(), name='test-stealth'),
+    path('test-stealth-msg/', TestStealthMessageView.as_view(), name='test-stealth-msg'),
 ]

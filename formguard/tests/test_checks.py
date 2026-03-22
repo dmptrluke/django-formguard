@@ -24,26 +24,24 @@ from formguard.widgets import HoneypotWidget
 
 
 class PassingCheck(BaseCheck):
-    def check(self, request, form):
+    def check(self, form):
         return False
 
 
 class FailingCheck(BaseCheck):
-    def check(self, request, form):
+    def check(self, form):
         return 'check failed'
 
 
 class CrashingCheck(BaseCheck):
     fail_open = True
 
-    def check(self, request, form):
+    def check(self, form):
         raise RuntimeError('boom')
 
 
 class CrashingFailClosedCheck(BaseCheck):
-    fail_open = False
-
-    def check(self, request, form):
+    def check(self, form):
         raise RuntimeError('boom')
 
 
@@ -74,7 +72,7 @@ class CheckWithTestData(BaseCheck):
     def test_data(self):
         return {'honeypot': ''}
 
-    def check(self, request, form):
+    def check(self, form):
         return False
 
 
@@ -103,16 +101,21 @@ class BaseCheckInterfaceTests(SimpleTestCase):
     def test_check_raises_not_implemented(self):
         check = BaseCheck()
         with pytest.raises(NotImplementedError):
-            check.check(None, None)
+            check.check(None)
 
     # test_data returns empty dict by default
     def test_default_test_data(self):
         check = BaseCheck()
         assert check.test_data() == {}
 
-    # fail_open defaults to True
+    # fail_open defaults to False
     def test_default_fail_open(self):
-        assert BaseCheck.fail_open is True
+        assert BaseCheck.fail_open is False
+
+    # message has a sensible default
+    def test_default_message(self):
+        check = BaseCheck()
+        assert check.message == 'Something went wrong. Please try again.'
 
     # subclass can override get_fields
     def test_subclass_get_fields(self):
@@ -129,6 +132,13 @@ class BaseCheckInterfaceTests(SimpleTestCase):
     def test_subclass_test_data(self):
         check = CheckWithTestData()
         assert check.test_data() == {'honeypot': ''}
+
+    # built-in checks explicitly set fail_open = True
+    def test_builtin_checks_fail_open(self):
+        assert FieldTrapCheck.fail_open is True
+        assert TokenCheck.fail_open is True
+        assert JsChallengeCheck.fail_open is True
+        assert InteractionCheck.fail_open is True
 
 
 class CheckScopedSettingsTests(SimpleTestCase):
@@ -215,58 +225,53 @@ class RunChecksTests(SimpleTestCase):
         form._checks = checks
         return form
 
-    def _make_request(self):
-        request = MagicMock()
-        request.META = {'REMOTE_ADDR': '127.0.0.1'}
-        return request
-
     # all checks pass returns empty list
     def test_all_pass(self):
         form = self._make_form([PassingCheck()])
-        reasons = run_checks(self._make_request(), form)
+        reasons = run_checks(form)
         assert reasons == []
 
     # failing check returns reason string
     def test_failing_check(self):
         form = self._make_form([FailingCheck()])
-        reasons = run_checks(self._make_request(), form)
+        reasons = run_checks(form)
         assert reasons == ['check failed']
 
     # multiple checks: mix of pass and fail
     def test_mixed_checks(self):
         form = self._make_form([PassingCheck(), FailingCheck(), PassingCheck()])
-        reasons = run_checks(self._make_request(), form)
+        reasons = run_checks(form)
         assert reasons == ['check failed']
 
     # crashing fail_open check is logged and skipped
     def test_fail_open_exception(self):
         form = self._make_form([CrashingCheck()])
-        reasons = run_checks(self._make_request(), form)
+        reasons = run_checks(form)
         assert reasons == []
 
     # crashing fail_closed check appends a reason
     def test_fail_closed_exception(self):
         form = self._make_form([CrashingFailClosedCheck()])
-        reasons = run_checks(self._make_request(), form)
+        reasons = run_checks(form)
         assert len(reasons) == 1
         assert reasons[0] == 'check error'
 
     # fail_open exception does not block other checks
     def test_fail_open_continues(self):
         form = self._make_form([CrashingCheck(), FailingCheck()])
-        reasons = run_checks(self._make_request(), form)
+        reasons = run_checks(form)
         assert reasons == ['check failed']
 
     # fail_closed exception does not block other checks
     def test_fail_closed_continues(self):
         form = self._make_form([CrashingFailClosedCheck(), PassingCheck()])
-        reasons = run_checks(self._make_request(), form)
+        reasons = run_checks(form)
         assert reasons == ['check error']
 
     # empty check list returns empty list
     def test_no_checks(self):
         form = self._make_form([])
-        reasons = run_checks(self._make_request(), form)
+        reasons = run_checks(form)
         assert reasons == []
 
 
@@ -298,26 +303,26 @@ class FieldTrapCheckTests(SimpleTestCase):
     def test_check_passes_empty(self):
         check = FieldTrapCheck()
         form = self._make_form({'website': ''})
-        assert check.check(None, form) is False
+        assert check.check(form) is False
 
     # check triggers when honeypot field is filled
     def test_check_triggers_filled(self):
         check = FieldTrapCheck()
         form = self._make_form({'website': 'http://spam.com'})
-        assert check.check(None, form) == 'honeypot field filled'
+        assert check.check(form) == 'honeypot field filled'
 
     # check passes when honeypot field is missing from cleaned_data
     def test_check_passes_missing(self):
         check = FieldTrapCheck()
         form = self._make_form({})
-        assert check.check(None, form) is False
+        assert check.check(form) is False
 
     # check uses custom field name from settings
     @override_settings(FORMGUARD_FIELD_TRAP_FIELD_NAME='phone')
     def test_check_custom_name(self):
         check = FieldTrapCheck()
         form = self._make_form({'phone': '555-1234'})
-        assert check.check(None, form) == 'honeypot field filled'
+        assert check.check(form) == 'honeypot field filled'
 
     # test_data returns empty string for the honeypot field
     def test_test_data(self):
@@ -355,26 +360,26 @@ class TokenCheckTests(SimpleTestCase):
         check = TokenCheck()
         token = TokenCheck._make_token(age=60)
         form = self._make_form({'fg_token': token})
-        assert check.check(None, form) is False
+        assert check.check(form) is False
 
     # check triggers when submitted too fast
     def test_check_triggers_too_fast(self):
         check = TokenCheck()
         token = TokenCheck._make_token(age=0)
         form = self._make_form({'fg_token': token})
-        assert check.check(None, form) == 'submitted too fast'
+        assert check.check(form) == 'submitted too fast'
 
     # check triggers on tampered token
     def test_check_triggers_tampered(self):
         check = TokenCheck()
         form = self._make_form({'fg_token': 'garbage-token'})
-        assert check.check(None, form) == 'invalid or expired token'
+        assert check.check(form) == 'invalid or expired token'
 
     # check triggers on empty token
     def test_check_triggers_empty(self):
         check = TokenCheck()
         form = self._make_form({'fg_token': ''})
-        assert check.check(None, form) == 'invalid or expired token'
+        assert check.check(form) == 'invalid or expired token'
 
     # check triggers on expired token (beyond MAX_SECONDS)
     @override_settings(FORMGUARD_TOKEN_MAX_SECONDS=1)
@@ -384,7 +389,7 @@ class TokenCheckTests(SimpleTestCase):
         with patch('django.core.signing.time.time', return_value=past):
             token = TokenCheck._make_token(age=0)
         form = self._make_form({'fg_token': token})
-        assert check.check(None, form) == 'invalid or expired token'
+        assert check.check(form) == 'invalid or expired token'
 
     # custom MIN_SECONDS setting is respected
     @override_settings(FORMGUARD_TOKEN_MIN_SECONDS=0)
@@ -392,7 +397,7 @@ class TokenCheckTests(SimpleTestCase):
         check = TokenCheck()
         token = TokenCheck._make_token(age=0)
         form = self._make_form({'fg_token': token})
-        assert check.check(None, form) is False
+        assert check.check(form) is False
 
     # test_data returns a valid token that passes the check
     def test_test_data(self):
@@ -400,7 +405,7 @@ class TokenCheckTests(SimpleTestCase):
         data = check.test_data()
         assert 'fg_token' in data
         form = self._make_form(data)
-        assert check.check(None, form) is False
+        assert check.check(form) is False
 
     # _make_token produces a signed value that can be loaded
     def test_make_token_is_valid(self):
@@ -439,31 +444,31 @@ class JsChallengeCheckTests(SimpleTestCase):
         nonce = 'abc123'
         expected = format(sum(ord(c) for c in nonce) & 0xFFFF, 'x')
         form = self._make_form({'fg_nonce': nonce, 'fg_js': expected})
-        assert check.check(None, form) is False
+        assert check.check(form) is False
 
     # check triggers when js value is empty
     def test_check_triggers_empty_js(self):
         check = JsChallengeCheck()
         form = self._make_form({'fg_nonce': 'abc123', 'fg_js': ''})
-        assert check.check(None, form) == 'js challenge failed'
+        assert check.check(form) == 'js challenge failed'
 
     # check triggers when nonce is empty
     def test_check_triggers_empty_nonce(self):
         check = JsChallengeCheck()
         form = self._make_form({'fg_nonce': '', 'fg_js': 'abc'})
-        assert check.check(None, form) == 'js challenge failed'
+        assert check.check(form) == 'js challenge failed'
 
     # check triggers when both fields are missing
     def test_check_triggers_missing_fields(self):
         check = JsChallengeCheck()
         form = self._make_form({})
-        assert check.check(None, form) == 'js challenge failed'
+        assert check.check(form) == 'js challenge failed'
 
     # check triggers on mismatched js value
     def test_check_triggers_mismatch(self):
         check = JsChallengeCheck()
         form = self._make_form({'fg_nonce': 'abc123', 'fg_js': 'wrong'})
-        assert check.check(None, form) == 'js challenge mismatch'
+        assert check.check(form) == 'js challenge mismatch'
 
     # test_data returns valid nonce and matching js value
     def test_test_data(self):
@@ -472,7 +477,7 @@ class JsChallengeCheckTests(SimpleTestCase):
         assert 'fg_nonce' in data
         assert 'fg_js' in data
         form = self._make_form(data)
-        assert check.check(None, form) is False
+        assert check.check(form) is False
 
     # test_data produces consistent nonce/js pairs
     def test_test_data_consistency(self):
@@ -499,19 +504,19 @@ class InteractionCheckTests(SimpleTestCase):
     def test_check_passes_with_interaction(self):
         check = InteractionCheck()
         form = self._make_form({'fg_ia': '1'})
-        assert check.check(None, form) is False
+        assert check.check(form) is False
 
     # check triggers when interaction field is empty
     def test_check_triggers_empty(self):
         check = InteractionCheck()
         form = self._make_form({'fg_ia': ''})
-        assert check.check(None, form) == 'no interaction detected'
+        assert check.check(form) == 'no interaction detected'
 
     # check triggers when interaction field is missing
     def test_check_triggers_missing(self):
         check = InteractionCheck()
         form = self._make_form({})
-        assert check.check(None, form) == 'no interaction detected'
+        assert check.check(form) == 'no interaction detected'
 
     # get_fields returns fg_ia hidden input with data attribute
     def test_get_fields(self):
@@ -533,4 +538,4 @@ class InteractionCheckTests(SimpleTestCase):
         data = check.test_data()
         assert data == {'fg_ia': '1'}
         form = self._make_form(data)
-        assert check.check(None, form) is False
+        assert check.check(form) is False

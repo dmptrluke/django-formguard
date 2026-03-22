@@ -21,9 +21,7 @@ class GuardedFormTestMixinTests(GuardedFormTestMixin, SimpleTestCase):
         form = MagicMock()
         form.cleaned_data = data
         form._checks = get_checks()
-        request = MagicMock()
-        request.META = {'REMOTE_ADDR': '127.0.0.1'}
-        reasons = run_checks(request, form)
+        reasons = run_checks(form)
         assert reasons == []
 
     # overrides are applied on top of generated data
