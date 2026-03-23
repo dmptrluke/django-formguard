@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0
+
+**Breaking:** customizable guard failure handling replaces silent reject booleans.
+
+- `guard_on_failure` callable attribute replaces `guard_silent_reject` / `guard_silent_message`
+- `reject_silently` handler class in new `formguard.handlers` module
+- Docs restructured: `advanced-usage.md` split into `failure-handling.md`, `configuration.md`, and `checks.md`
+
+**Migration:** Replace `guard_silent_reject = True` with `guard_on_failure = reject_silently()`. Replace `guard_silent_message = '...'` with `reject_silently(message='...')`.
+
 ## 0.5.0
 
 **Breaking:** structured check results, signal rework, consistent `guard_` prefix.

@@ -15,8 +15,8 @@ FormGuard runs a series of checks against each form submission:
 4. **Interaction proof** - detects real user input (accessible to screen readers)
 
 All checks are invisible to real users. Check failures are handled as standard
-form validation errors, with an optional stealth-reject mode for honeypot-style
-protection.
+form validation errors, with customizable failure handling for honeypot-style
+silent rejection.
 
 FormGuard is extensible - new checks can be added easily. See [Custom Checks](docs/custom-checks.md).
 
@@ -97,11 +97,10 @@ class ContactView(GuardedFormViewMixin, FormView):
         return super().form_valid(form)
 ```
 
-If a check fails, the form returns an error message. Set `guard_silent_reject = True`
-on the view to redirect bots to a fake success page instead.
+If a check fails, the form returns an error message. To silently redirect bots
+to a fake success page instead, see [Failure Handling](docs/failure-handling.md).
 
-**Function-based views** - For function based views and other options see
-[Advanced Usage](docs/advanced-usage.md)
+**Function-based views** - see [Function-Based Views](docs/function-based-views.md)
 
 ## Settings
 
@@ -123,8 +122,11 @@ FORMGUARD_TOKEN_MAX_SECONDS = 3600           # default
 
 ## Further Reading
 
+- [Function-Based Views](docs/function-based-views.md) - using FormGuard without class-based views
+- [Failure Handling](docs/failure-handling.md) - customize what happens when a guard check fails
+- [Configuration](docs/configuration.md) - per-form checks, manual rendering, settings reference
+- [Built-in Checks](docs/checks.md) - reference for each check
 - [Custom Checks](docs/custom-checks.md) - write your own checks (CAPTCHA, rate limiting, etc.)
-- [Advanced Usage](docs/advanced-usage.md) - per-form checks, silent reject, FBV pattern
 - [Testing](docs/testing.md) - test helpers for guarded forms
 - [Signals](docs/signals.md) - hook into bot detection events
 

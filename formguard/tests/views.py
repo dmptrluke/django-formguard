@@ -1,7 +1,9 @@
 from django import forms
+from django.http import HttpResponse
 from django.views.generic import FormView
 
 from formguard.forms import GuardedFormMixin
+from formguard.handlers import reject_silently
 from formguard.views import GuardedFormViewMixin
 
 
@@ -18,22 +20,35 @@ class TestGuardedView(GuardedFormViewMixin, FormView):
         return super().form_valid(form)
 
 
-class TestSilentView(GuardedFormViewMixin, FormView):
+class TestRejectSilentlyView(GuardedFormViewMixin, FormView):
     form_class = TestForm
     template_name = 'formguard/tests/form.html'
     success_url = '/success/'
-    guard_silent_reject = True
+    guard_on_failure = reject_silently()
 
     def form_valid(self, form):
         return super().form_valid(form)
 
 
-class TestSilentMessageView(GuardedFormViewMixin, FormView):
+class TestRejectSilentlyMessageView(GuardedFormViewMixin, FormView):
     form_class = TestForm
     template_name = 'formguard/tests/form.html'
     success_url = '/success/'
-    guard_silent_reject = True
-    guard_silent_message = 'Thanks!'
+    guard_on_failure = reject_silently(message='Thanks!')
+
+    def form_valid(self, form):
+        return super().form_valid(form)
+
+
+def _custom_handler(request, form, success_url=None, **kwargs):
+    return HttpResponse(f'custom:{success_url}:{len(form.guard_failures)}', status=200)
+
+
+class TestCustomCallableView(GuardedFormViewMixin, FormView):
+    form_class = TestForm
+    template_name = 'formguard/tests/form.html'
+    success_url = '/success/'
+    guard_on_failure = _custom_handler
 
     def form_valid(self, form):
         return super().form_valid(form)
