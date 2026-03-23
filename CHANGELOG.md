@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0
+
+- `formguard.contrib.turnstile` adds Cloudflare Turnstile verification as a check
+- Turnstile widget renders automatically via `{{ form.media }}` and `{{ form.guard_fields }}`
+- Server-side token verification via urllib (no third-party dependencies)
+- Built-in test key bypass for fast offline testing with `guard_data()`
+- Optional client IP forwarding via `FORMGUARD_TURNSTILE_IP_HEADER`
+- Configurable widget theme and size
+
 ## 0.6.0
 
 **Breaking:** customizable guard failure handling replaces silent reject booleans.

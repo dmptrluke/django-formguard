@@ -18,7 +18,8 @@ All checks are invisible to real users. Check failures are handled as standard
 form validation errors, with customizable failure handling for honeypot-style
 silent rejection.
 
-FormGuard is extensible - new checks can be added easily. See [Custom Checks](docs/custom-checks.md).
+FormGuard is extensible. [Cloudflare Turnstile](docs/turnstile.md) is available
+as a contrib check, and you can [write your own](docs/custom-checks.md).
 
 ## Installation
 
@@ -126,7 +127,8 @@ FORMGUARD_TOKEN_MAX_SECONDS = 3600           # default
 - [Failure Handling](docs/failure-handling.md) - customize what happens when a guard check fails
 - [Configuration](docs/configuration.md) - per-form checks, manual rendering, settings reference
 - [Built-in Checks](docs/checks.md) - reference for each check
-- [Custom Checks](docs/custom-checks.md) - write your own checks (CAPTCHA, rate limiting, etc.)
+- [Cloudflare Turnstile](docs/turnstile.md) - add Turnstile CAPTCHA verification
+- [Custom Checks](docs/custom-checks.md) - write your own checks
 - [Testing](docs/testing.md) - test helpers for guarded forms
 - [Signals](docs/signals.md) - hook into bot detection events
 

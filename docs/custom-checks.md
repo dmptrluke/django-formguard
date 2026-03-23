@@ -73,45 +73,28 @@ from django import forms
 from formguard.checks import BaseCheck
 
 
-class TurnstileCheck(BaseCheck):
-    settings_prefix = 'TURNSTILE'
-    defaults = {
-        'SITE_KEY': None,
-        'SECRET_KEY': None,
-    }
-    message = 'Please complete the verification.'
+class SecretWordCheck(BaseCheck):
+    settings_prefix = 'SECRET_WORD'
+    defaults = {'ANSWER': 'swordfish'}
+    message = 'Incorrect secret word.'
 
     def get_fields(self):
         return {
-            'cf-turnstile-response': forms.CharField(
-                required=False,
-                widget=TurnstileWidget(site_key=self.get_setting('SITE_KEY')),
-            ),
+            'secret_word': forms.CharField(required=False),
         }
 
-    def get_media(self):
-        return forms.Media(
-            js=('https://challenges.cloudflare.com/turnstile/v0/api.js',),
-        )
-
     def check(self, form):
-        token = form.cleaned_data.get('cf-turnstile-response', '')
-        if not token:
-            return 'turnstile not completed'
-        if not verify_turnstile(token, self.get_setting('SECRET_KEY')):
-            return 'turnstile verification failed'
+        answer = self.get_setting('ANSWER')
+        if form.cleaned_data.get('secret_word', '') != answer:
+            return 'wrong secret word'
         return False
 
     def test_data(self):
-        return {'cf-turnstile-response': 'test-token'}
+        return {'secret_word': self.get_setting('ANSWER')}
 ```
 
-Configure via Django settings:
-
-```python
-FORMGUARD_TURNSTILE_SITE_KEY = 'your-site-key'
-FORMGUARD_TURNSTILE_SECRET_KEY = 'your-secret-key'
-```
+For a real-world example with an external widget, server-side verification,
+and test key support, see [Cloudflare Turnstile](turnstile.md).
 
 ## Check-Scoped Settings
 
