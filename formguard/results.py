@@ -1,7 +1,7 @@
 class GuardResult:
     """Outcome of a single guard check: carries the check instance, reason, and pass/fail status."""
 
-    __slots__ = ('check', 'reason', 'passed')
+    __slots__ = ('check', 'passed', 'reason')
 
     def __init__(self, *, check=None, reason=None, passed):
         self.check = check

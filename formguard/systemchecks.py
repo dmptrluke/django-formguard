@@ -1,5 +1,6 @@
 from django.conf import settings
-from django.core.checks import Error, Warning
+from django.core.checks import Error
+from django.core.checks import Warning as CheckWarning
 from django.utils.module_loading import import_string
 
 from formguard.checks import BaseCheck
@@ -22,7 +23,7 @@ def check_settings(**kwargs):
         return errors
 
     if len(checks_value) == 0:
-        errors.append(Warning(
+        errors.append(CheckWarning(
             'FORMGUARD_CHECKS is empty. No forms will be protected '
             'unless they define guard_checks.',
             id='formguard.W001',
@@ -59,7 +60,7 @@ def check_settings(**kwargs):
         return errors
 
     field_owners = {}
-    for path, cls in valid_classes:
+    for _path, cls in valid_classes:
         instance = cls()
         for name in instance.get_fields():
             if name in field_owners:

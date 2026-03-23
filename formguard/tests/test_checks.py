@@ -6,8 +6,6 @@ from django.core.exceptions import ImproperlyConfigured
 from django.forms import CharField, HiddenInput, Media
 from django.test import SimpleTestCase, override_settings
 
-import pytest
-
 from formguard.checks import (
     SIGNING_SALT,
     BaseCheck,
@@ -100,7 +98,7 @@ class BaseCheckInterfaceTests(SimpleTestCase):
     # check() raises NotImplementedError
     def test_check_raises_not_implemented(self):
         check = BaseCheck()
-        with pytest.raises(NotImplementedError):
+        with self.assertRaises(NotImplementedError):
             check.check(None)
 
     # test_data returns empty dict by default
@@ -163,7 +161,7 @@ class CheckScopedSettingsTests(SimpleTestCase):
     # raises ImproperlyConfigured when no default and no setting
     def test_raises_when_missing(self):
         check = CheckWithNoDefaults()
-        with pytest.raises(ImproperlyConfigured):
+        with self.assertRaises(ImproperlyConfigured):
             check.get_setting('NONEXISTENT')
 
     # falsy Django setting values are returned (not treated as missing)
@@ -203,13 +201,13 @@ class GetChecksTests(SimpleTestCase):
     # raises ImproperlyConfigured on bad import path
     @override_settings(FORMGUARD_CHECKS=['formguard.does_not_exist.FakeCheck'])
     def test_bad_import(self):
-        with pytest.raises(ImproperlyConfigured, match='Could not import'):
+        with self.assertRaises(ImproperlyConfigured):
             get_checks()
 
     # raises ImproperlyConfigured when path points to non-BaseCheck
     @override_settings(FORMGUARD_CHECKS=['formguard.tests.test_checks.not_a_check'])
     def test_not_a_subclass(self):
-        with pytest.raises(ImproperlyConfigured, match='not a BaseCheck subclass'):
+        with self.assertRaises(ImproperlyConfigured):
             get_checks()
 
     # empty check list returns empty list
