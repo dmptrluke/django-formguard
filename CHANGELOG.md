@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0
+
+- `guard_check_options` on forms overrides check settings per-form without subclassing
+- `BaseCheck` accepts `options` dict; `get_setting()` checks options before Django settings
+- `TurnstileCheck` supports `CALLBACK` setting for auto-submit workflows
+- `TurnstileWidget` renders `data-callback` attribute when configured
+
 ## 0.7.1
 
 - Fix test key bypass to use Cloudflare's actual published test keys (no dash)

@@ -47,7 +47,28 @@ Cloudflare script, and the Turnstile widget renders automatically with
 | `FORMGUARD_TURNSTILE_THEME` | `'auto'` | Widget theme: `auto`, `light`, `dark` |
 | `FORMGUARD_TURNSTILE_SIZE` | `'normal'` | Widget size: `normal`, `compact` |
 | `FORMGUARD_TURNSTILE_TIMEOUT` | `5` | Seconds before the Cloudflare verification request times out |
+| `FORMGUARD_TURNSTILE_CALLBACK` | `None` | JS function name called when verification completes |
 | `FORMGUARD_TURNSTILE_IP_HEADER` | `None` | `request.META` key for client IP forwarding (see below) |
+
+## Per-form options
+
+Use `guard_check_options` to configure Turnstile differently per form. For
+an invisible interstitial that auto-submits on verification:
+
+```python
+class InterstitialForm(GuardedFormMixin, forms.Form):
+    guard_checks = [
+        'formguard.contrib.turnstile.TurnstileCheck',
+    ]
+    guard_check_options = {
+        'formguard.contrib.turnstile.TurnstileCheck': {
+            'SIZE': 'invisible',
+            'CALLBACK': 'onTurnstileComplete',
+        },
+    }
+```
+
+See [Configuration](configuration.md) for how `guard_check_options` works.
 
 ## IP forwarding
 
@@ -107,31 +128,17 @@ valid = await sync_to_async(form.is_valid)()
 
 ## Customization
 
-Subclass `TurnstileCheck` to customize behavior. Override `get_fields()` to
-use a custom widget, or override `check()` for conditional logic:
+For widget configuration (theme, size, callback), use `guard_check_options`
+on the form (see above). For deeper customization, subclass `TurnstileCheck`:
 
 ```python
 from formguard.contrib.turnstile import TurnstileCheck
-from formguard.contrib.turnstile.widgets import TurnstileWidget
-from django.forms import CharField
 
-
-class MyTurnstileWidget(TurnstileWidget):
-    template_name = 'myapp/turnstile.html'
-
-
-class MyTurnstileCheck(TurnstileCheck):
-    def get_fields(self):
-        return {
-            'cf-turnstile-response': CharField(
-                required=False,
-                widget=MyTurnstileWidget(
-                    site_key=self.get_setting('SITE_KEY'),
-                    theme=self.get_setting('THEME'),
-                    size=self.get_setting('SIZE'),
-                ),
-            ),
-        }
+class ConditionalTurnstileCheck(TurnstileCheck):
+    def check(self, form):
+        if is_trusted_ip(form.request):
+            return False
+        return super().check(form)
 ```
 
 Register the subclass instead of `TurnstileCheck` in your settings or

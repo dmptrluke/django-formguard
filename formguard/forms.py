@@ -14,6 +14,7 @@ class GuardedFormMixin:
     """Aggregate fields and media from all configured checks, and run them during validation."""
 
     guard_checks = None
+    guard_check_options = None
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request', None)
@@ -24,7 +25,7 @@ class GuardedFormMixin:
         super().__init__(*args, **kwargs)
 
         if self.guard_checks is not None:
-            self._checks = resolve_checks(self.guard_checks)
+            self._checks = resolve_checks(self.guard_checks, self.guard_check_options)
         else:
             self._checks = get_checks()
         seen_fields = {}

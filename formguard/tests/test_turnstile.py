@@ -58,6 +58,18 @@ class TurnstileWidgetTests(SimpleTestCase):
         widget = TurnstileWidget(site_key='k')
         assert widget.value_from_datadict({}, {}, 'ignored') == ''
 
+    # renders data-callback when set
+    def test_renders_callback(self):
+        widget = TurnstileWidget(site_key='k', callback='onVerify')
+        html = widget.render('cf-turnstile-response', '', attrs={'id': 'id_cf'})
+        assert 'data-callback="onVerify"' in html
+
+    # omits data-callback when None
+    def test_omits_callback_when_none(self):
+        widget = TurnstileWidget(site_key='k')
+        html = widget.render('cf-turnstile-response', '', attrs={'id': 'id_cf'})
+        assert 'data-callback' not in html
+
     # uses the correct template
     def test_template_name(self):
         widget = TurnstileWidget(site_key='k')
@@ -237,6 +249,20 @@ class TurnstileCheckTests(SimpleTestCase):
         fields = check.get_fields()
         widget = fields['cf-turnstile-response'].widget
         assert widget.site_key == '1x00000000000000000000AA'
+
+    # get_fields widget has callback from options
+    def test_get_fields_callback_from_options(self):
+        check = TurnstileCheck(options={'CALLBACK': 'onVerify'})
+        fields = check.get_fields()
+        widget = fields['cf-turnstile-response'].widget
+        assert widget.callback == 'onVerify'
+
+    # get_fields widget has no callback by default
+    def test_get_fields_no_callback_default(self):
+        check = TurnstileCheck()
+        fields = check.get_fields()
+        widget = fields['cf-turnstile-response'].widget
+        assert widget.callback is None
 
     # get_fields widget uses theme and size from settings
     @override_settings(FORMGUARD_TURNSTILE_THEME='dark', FORMGUARD_TURNSTILE_SIZE='compact')

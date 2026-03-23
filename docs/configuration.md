@@ -33,6 +33,31 @@ When testing forms with per-form checks, pass the form class to
 data = self.guard_data(form_class=ContactForm)
 ```
 
+## Per-Form Check Options
+
+Override check settings on a specific form with `guard_check_options`. Keys
+are dotted check paths, values are dicts of setting overrides. Option keys
+match the setting names (uppercase, without the `FORMGUARD_` prefix).
+
+```python
+class InterstitialForm(GuardedFormMixin, forms.Form):
+    guard_checks = [
+        'formguard.contrib.turnstile.TurnstileCheck',
+    ]
+    guard_check_options = {
+        'formguard.contrib.turnstile.TurnstileCheck': {
+            'SIZE': 'invisible',
+            'CALLBACK': 'onTurnstileComplete',
+        },
+    }
+```
+
+Options take priority over Django settings and check defaults:
+
+```
+guard_check_options -> FORMGUARD_{PREFIX}_{NAME} -> check defaults
+```
+
 ## Manual Field Rendering
 
 If your template renders fields individually instead of using `{{ form }}`,

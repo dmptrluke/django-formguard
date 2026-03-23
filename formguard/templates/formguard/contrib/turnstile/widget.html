@@ -1,5 +1,6 @@
 <div class="cf-turnstile"
      data-sitekey="{{ widget.site_key }}"
      data-theme="{{ widget.theme }}"
-     data-size="{{ widget.size }}">
+     data-size="{{ widget.size }}"
+     {% if widget.callback %}data-callback="{{ widget.callback }}"{% endif %}>
 </div>

@@ -14,6 +14,7 @@ from formguard.checks import (
     JsChallengeCheck,
     TokenCheck,
     get_checks,
+    resolve_checks,
     run_checks,
 )
 from formguard.widgets import HoneypotWidget
@@ -175,6 +176,55 @@ class CheckScopedSettingsTests(SimpleTestCase):
     def test_empty_prefix(self):
         check = BaseCheck()
         assert check.get_setting('SOME_VALUE') == 'hello'
+
+
+class CheckOptionsTests(SimpleTestCase):
+    # options default to empty dict
+    def test_default_options(self):
+        check = BaseCheck()
+        assert check.options == {}
+
+    # options are stored on the instance
+    def test_stores_options(self):
+        check = BaseCheck(options={'FIELD_NAME': 'email'})
+        assert check.options == {'FIELD_NAME': 'email'}
+
+    # get_setting returns option value when present
+    def test_option_returned(self):
+        check = CheckWithSettings(options={'FIELD_NAME': 'email'})
+        assert check.get_setting('FIELD_NAME') == 'email'
+
+    # option overrides Django setting
+    @override_settings(FORMGUARD_TRAP_FIELD_NAME='phone')
+    def test_option_overrides_django_setting(self):
+        check = CheckWithSettings(options={'FIELD_NAME': 'email'})
+        assert check.get_setting('FIELD_NAME') == 'email'
+
+    # option overrides default
+    def test_option_overrides_default(self):
+        check = CheckWithSettings(options={'TIMEOUT': 99})
+        assert check.get_setting('TIMEOUT') == 99
+
+    # get_setting falls through when option is absent
+    def test_falls_through_without_option(self):
+        check = CheckWithSettings(options={'FIELD_NAME': 'email'})
+        assert check.get_setting('TIMEOUT') == 30
+
+    # resolve_checks passes options to the correct check
+    @override_settings(FORMGUARD_CHECKS=['formguard.tests.test_checks.CheckWithSettings'])
+    def test_resolve_with_options(self):
+        checks = resolve_checks(
+            ['formguard.tests.test_checks.CheckWithSettings'],
+            check_options={'formguard.tests.test_checks.CheckWithSettings': {'TIMEOUT': 99}},
+        )
+        assert len(checks) == 1
+        assert checks[0].options == {'TIMEOUT': 99}
+
+    # resolve_checks works without options (backward compat)
+    def test_resolve_without_options(self):
+        checks = resolve_checks(['formguard.tests.test_checks.PassingCheck'])
+        assert len(checks) == 1
+        assert checks[0].options == {}
 
 
 class GetChecksTests(SimpleTestCase):

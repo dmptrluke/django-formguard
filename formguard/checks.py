@@ -26,6 +26,9 @@ class BaseCheck:
     settings_prefix = ''
     defaults = {}
 
+    def __init__(self, options=None):
+        self.options = options or {}
+
     def get_fields(self):
         """Return form fields to inject, as a dict of {name: field}."""
         return {}
@@ -43,7 +46,10 @@ class BaseCheck:
         return {}
 
     def get_setting(self, name):
-        """Read a check-scoped setting from Django settings, falling back to defaults."""
+        """Read a check-scoped setting, checking options first, then Django settings, then defaults."""
+        if name in self.options:
+            return self.options[name]
+
         if self.settings_prefix:
             setting_name = f'FORMGUARD_{self.settings_prefix}_{name}'
         else:
@@ -195,7 +201,7 @@ class InteractionCheck(BaseCheck):
         return {'fg_ia': '1'}
 
 
-def resolve_checks(check_paths):
+def resolve_checks(check_paths, check_options=None):
     """Import and instantiate check classes from a list of dotted paths."""
     checks = []
 
@@ -208,7 +214,8 @@ def resolve_checks(check_paths):
         if not (isinstance(cls, type) and issubclass(cls, BaseCheck)):
             raise ImproperlyConfigured(f'{path!r} is not a BaseCheck subclass')
 
-        checks.append(cls())
+        options = (check_options or {}).get(path, {})
+        checks.append(cls(options=options))
 
     return checks
 

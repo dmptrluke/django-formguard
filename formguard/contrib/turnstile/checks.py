@@ -43,6 +43,7 @@ class TurnstileCheck(BaseCheck):
         'SIZE': 'normal',
         'IP_HEADER': None,
         'TIMEOUT': 5,
+        'CALLBACK': None,
     }
 
     def get_fields(self):
@@ -53,6 +54,7 @@ class TurnstileCheck(BaseCheck):
                     site_key=self.get_setting('SITE_KEY'),
                     theme=self.get_setting('THEME'),
                     size=self.get_setting('SIZE'),
+                    callback=self.get_setting('CALLBACK'),
                 ),
             ),
         }

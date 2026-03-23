@@ -97,6 +97,24 @@ class GuardedFormMixinTests(SimpleTestCase):
         assert 'fg_token' not in form.fields
         assert 'fg_nonce' not in form.fields
 
+    # guard_check_options passes options to checks
+    def test_check_options_passed(self):
+        class FormWithOptions(GuardedFormMixin, forms.Form):
+            guard_checks = ['formguard.checks.FieldTrapCheck']
+            guard_check_options = {
+                'formguard.checks.FieldTrapCheck': {'FIELD_NAME': 'phone'},
+            }
+            name = forms.CharField()
+
+        form = FormWithOptions()
+        assert 'phone' in form.fields
+        assert 'website' not in form.fields
+
+    # guard_check_options defaults to None (no behavior change)
+    def test_check_options_default_none(self):
+        form = SampleForm()
+        assert form.guard_check_options is None
+
     # request kwarg is stored on the form
     def test_request_stored(self):
         request = _make_request()
