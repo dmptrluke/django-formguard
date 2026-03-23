@@ -198,9 +198,7 @@ class IsValidTests(SimpleTestCase):
         assert len(form.guard_failures) > 1
 
     # fail_open check that crashes is silently skipped
-    @override_settings(
-        FORMGUARD_CHECKS=['formguard.tests.test_checks.CrashingCheck']
-    )
+    @override_settings(FORMGUARD_CHECKS=['formguard.tests.test_checks.CrashingCheck'])
     def test_fail_open_crash_skipped(self):
         data = {'name': 'Alice', 'email': 'alice@example.com'}
         form = SampleForm(data, request=_make_request())
@@ -208,9 +206,7 @@ class IsValidTests(SimpleTestCase):
         assert form.guard_failures == []
 
     # fail_closed check that crashes adds to guard_failures
-    @override_settings(
-        FORMGUARD_CHECKS=['formguard.tests.test_checks.CrashingFailClosedCheck']
-    )
+    @override_settings(FORMGUARD_CHECKS=['formguard.tests.test_checks.CrashingFailClosedCheck'])
     def test_fail_closed_crash_recorded(self):
         data = {'name': 'Alice', 'email': 'alice@example.com'}
         form = SampleForm(data, request=_make_request())

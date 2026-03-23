@@ -53,10 +53,12 @@ class DefaultChecksTests(SimpleTestCase):
         assert 'myapp.checks.Custom' in result
 
     # exclude works against custom settings
-    @override_settings(FORMGUARD_CHECKS=[
-        'formguard.checks.FieldTrapCheck',
-        'formguard.checks.TokenCheck',
-    ])
+    @override_settings(
+        FORMGUARD_CHECKS=[
+            'formguard.checks.FieldTrapCheck',
+            'formguard.checks.TokenCheck',
+        ]
+    )
     def test_exclude_with_custom_settings(self):
         result = default_checks(exclude=['formguard.checks.TokenCheck'])
         assert result == ['formguard.checks.FieldTrapCheck']

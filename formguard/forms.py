@@ -57,9 +57,7 @@ class GuardedFormMixin:
         self._guard_checks_run = True
 
         if self.request is None:
-            raise ImproperlyConfigured(
-                'GuardedFormMixin requires request=request in the form constructor.'
-            )
+            raise ImproperlyConfigured('GuardedFormMixin requires request=request in the form constructor.')
 
         self.guard_results = run_checks(self)
         self.guard_failures = [r for r in self.guard_results if not r.passed]
@@ -70,13 +68,17 @@ class GuardedFormMixin:
         if self.guard_failures:
             handle_bot(self.__class__, self.request, self, self.guard_failures)
             guard_failed.send(
-                sender=self.__class__, request=self.request,
-                form=self, results=self.guard_results,
+                sender=self.__class__,
+                request=self.request,
+                form=self,
+                results=self.guard_results,
             )
 
         guard_checked.send(
-            sender=self.__class__, request=self.request,
-            form=self, results=self.guard_results,
+            sender=self.__class__,
+            request=self.request,
+            form=self,
+            results=self.guard_results,
         )
 
     @property

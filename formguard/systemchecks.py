@@ -16,18 +16,21 @@ def check_settings(**kwargs):
     checks_value = settings.FORMGUARD_CHECKS
 
     if not isinstance(checks_value, (list, tuple)):
-        errors.append(Error(
-            'FORMGUARD_CHECKS should be a list or tuple of dotted paths.',
-            id='formguard.E001',
-        ))
+        errors.append(
+            Error(
+                'FORMGUARD_CHECKS should be a list or tuple of dotted paths.',
+                id='formguard.E001',
+            )
+        )
         return errors
 
     if len(checks_value) == 0:
-        errors.append(CheckWarning(
-            'FORMGUARD_CHECKS is empty. No forms will be protected '
-            'unless they define guard_checks.',
-            id='formguard.W001',
-        ))
+        errors.append(
+            CheckWarning(
+                'FORMGUARD_CHECKS is empty. No forms will be protected unless they define guard_checks.',
+                id='formguard.W001',
+            )
+        )
         return errors
 
     valid_classes = []
@@ -37,20 +40,22 @@ def check_settings(**kwargs):
         try:
             cls = import_string(path)
         except ImportError as e:
-            errors.append(Error(
-                f'FORMGUARD_CHECKS contains {path!r} which could not be '
-                f'imported: {e}',
-                id='formguard.E002',
-            ))
+            errors.append(
+                Error(
+                    f'FORMGUARD_CHECKS contains {path!r} which could not be imported: {e}',
+                    id='formguard.E002',
+                )
+            )
             has_import_errors = True
             continue
 
         if not (isinstance(cls, type) and issubclass(cls, BaseCheck)):
-            errors.append(Error(
-                f'FORMGUARD_CHECKS contains {path!r} which is not a '
-                f'BaseCheck subclass.',
-                id='formguard.E003',
-            ))
+            errors.append(
+                Error(
+                    f'FORMGUARD_CHECKS contains {path!r} which is not a BaseCheck subclass.',
+                    id='formguard.E003',
+                )
+            )
             has_import_errors = True
             continue
 
@@ -64,11 +69,12 @@ def check_settings(**kwargs):
         instance = cls()
         for name in instance.get_fields():
             if name in field_owners:
-                errors.append(Error(
-                    f'Checks {field_owners[name]} and {cls.__name__} both '
-                    f'define field {name!r}.',
-                    id='formguard.E004',
-                ))
+                errors.append(
+                    Error(
+                        f'Checks {field_owners[name]} and {cls.__name__} both define field {name!r}.',
+                        id='formguard.E004',
+                    )
+                )
             else:
                 field_owners[name] = cls.__name__
 

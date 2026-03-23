@@ -27,10 +27,12 @@ class SystemCheckTests(SimpleTestCase):
         assert errors[0].id == 'formguard.E003'
 
     # two checks with duplicate field names produces E004
-    @override_settings(FORMGUARD_CHECKS=[
-        'formguard.tests.test_forms.DuplicateFieldCheckA',
-        'formguard.tests.test_forms.DuplicateFieldCheckB',
-    ])
+    @override_settings(
+        FORMGUARD_CHECKS=[
+            'formguard.tests.test_forms.DuplicateFieldCheckA',
+            'formguard.tests.test_forms.DuplicateFieldCheckB',
+        ]
+    )
     def test_e004_duplicate_fields(self):
         errors = check_settings()
         assert len(errors) == 1
@@ -45,10 +47,12 @@ class SystemCheckTests(SimpleTestCase):
         assert errors[0].id == 'formguard.W001'
 
     # valid config produces no errors
-    @override_settings(FORMGUARD_CHECKS=[
-        'formguard.checks.FieldTrapCheck',
-        'formguard.checks.TokenCheck',
-    ])
+    @override_settings(
+        FORMGUARD_CHECKS=[
+            'formguard.checks.FieldTrapCheck',
+            'formguard.checks.TokenCheck',
+        ]
+    )
     def test_valid_config(self):
         errors = check_settings()
         assert errors == []

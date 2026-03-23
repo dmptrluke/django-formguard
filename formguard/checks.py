@@ -243,8 +243,12 @@ def run_checks(form):
                     type(check).__module__,
                     type(check).__qualname__,
                 )
-                results.append(GuardResult(
-                    check=check, reason='check error', passed=False,
-                ))
+                results.append(
+                    GuardResult(
+                        check=check,
+                        reason='check error',
+                        passed=False,
+                    )
+                )
 
     return results
