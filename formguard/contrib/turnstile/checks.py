@@ -41,6 +41,7 @@ class TurnstileCheck(BaseCheck):
     defaults = {
         'THEME': 'auto',
         'SIZE': 'normal',
+        'APPEARANCE': None,
         'IP_HEADER': None,
         'TIMEOUT': 5,
         'CALLBACK': None,
@@ -54,6 +55,7 @@ class TurnstileCheck(BaseCheck):
                     site_key=self.get_setting('SITE_KEY'),
                     theme=self.get_setting('THEME'),
                     size=self.get_setting('SIZE'),
+                    appearance=self.get_setting('APPEARANCE'),
                     callback=self.get_setting('CALLBACK'),
                 ),
             ),

@@ -46,7 +46,6 @@ class InterstitialForm(GuardedFormMixin, forms.Form):
     ]
     guard_check_options = {
         'formguard.contrib.turnstile.TurnstileCheck': {
-            'SIZE': 'invisible',
             'CALLBACK': 'onTurnstileComplete',
         },
     }

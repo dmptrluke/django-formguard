@@ -1,11 +1,16 @@
 # Changelog
 
+## 0.8.1
+
+- `TurnstileCheck` supports `APPEARANCE` setting (`always`, `execute`, `interaction-only`)
+- Fix docs: removed invalid `SIZE: 'invisible'` example (invisible is a sitekey type, not a size)
+
 ## 0.8.0
 
 - `guard_check_options` on forms overrides check settings per-form without subclassing
 - `BaseCheck` accepts `options` dict; `get_setting()` checks options before Django settings
-- `TurnstileCheck` supports `CALLBACK` setting for auto-submit workflows
-- `TurnstileWidget` renders `data-callback` attribute when configured
+- `TurnstileCheck` supports `CALLBACK` and `APPEARANCE` settings
+- `TurnstileWidget` renders `data-callback` and `data-appearance` attributes when configured
 
 ## 0.7.1
 

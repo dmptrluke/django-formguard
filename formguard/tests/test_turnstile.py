@@ -58,6 +58,18 @@ class TurnstileWidgetTests(SimpleTestCase):
         widget = TurnstileWidget(site_key='k')
         assert widget.value_from_datadict({}, {}, 'ignored') == ''
 
+    # renders data-appearance when set
+    def test_renders_appearance(self):
+        widget = TurnstileWidget(site_key='k', appearance='interaction-only')
+        html = widget.render('cf-turnstile-response', '', attrs={'id': 'id_cf'})
+        assert 'data-appearance="interaction-only"' in html
+
+    # omits data-appearance when None
+    def test_omits_appearance_when_none(self):
+        widget = TurnstileWidget(site_key='k')
+        html = widget.render('cf-turnstile-response', '', attrs={'id': 'id_cf'})
+        assert 'data-appearance' not in html
+
     # renders data-callback when set
     def test_renders_callback(self):
         widget = TurnstileWidget(site_key='k', callback='onVerify')
