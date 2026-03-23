@@ -18,22 +18,22 @@ class TestGuardedView(GuardedFormViewMixin, FormView):
         return super().form_valid(form)
 
 
-class TestStealthView(GuardedFormViewMixin, FormView):
+class TestSilentView(GuardedFormViewMixin, FormView):
     form_class = TestForm
     template_name = 'formguard/tests/form.html'
     success_url = '/success/'
-    stealth_reject = True
+    guard_silent_reject = True
 
     def form_valid(self, form):
         return super().form_valid(form)
 
 
-class TestStealthMessageView(GuardedFormViewMixin, FormView):
+class TestSilentMessageView(GuardedFormViewMixin, FormView):
     form_class = TestForm
     template_name = 'formguard/tests/form.html'
     success_url = '/success/'
-    stealth_reject = True
-    stealth_message = 'Thanks!'
+    guard_silent_reject = True
+    guard_silent_message = 'Thanks!'
 
     def form_valid(self, form):
         return super().form_valid(form)

@@ -24,19 +24,17 @@ class RateLimitCheck(BaseCheck):
 Register it globally in settings:
 
 ```python
-FORMGUARD_CHECKS = [
-    'formguard.checks.FieldTrapCheck',
-    'formguard.checks.TokenCheck',
-    'formguard.checks.JsChallengeCheck',
+from formguard.conf import BUILTINS
+FORMGUARD_CHECKS = BUILTINS + [
     'myapp.checks.RateLimitCheck',
 ]
 ```
 
-Or apply it to a specific form with `formguard_checks`:
+Or apply it to a specific form with `guard_checks`:
 
 ```python
 class ContactForm(GuardedFormMixin, forms.Form):
-    formguard_checks = [
+    guard_checks = [
         'formguard.checks.FieldTrapCheck',
         'myapp.checks.RateLimitCheck',
     ]

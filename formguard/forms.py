@@ -3,7 +3,8 @@ import logging
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.safestring import mark_safe
 
-from formguard.checks import get_checks, resolve_checks
+from formguard.checks import get_checks, resolve_checks, run_checks
+from formguard.signals import guard_checked, guard_failed
 from formguard.utils import handle_bot
 
 logger = logging.getLogger('formguard')
@@ -12,17 +13,18 @@ logger = logging.getLogger('formguard')
 class GuardedFormMixin:
     """Aggregate fields and media from all configured checks, and run them during validation."""
 
-    formguard_checks = None
+    guard_checks = None
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request', None)
+        self.guard_results = []
         self.guard_failures = []
         self._guard_checks_run = False
 
         super().__init__(*args, **kwargs)
 
-        if self.formguard_checks is not None:
-            self._checks = resolve_checks(self.formguard_checks)
+        if self.guard_checks is not None:
+            self._checks = resolve_checks(self.guard_checks)
         else:
             self._checks = get_checks()
         seen_fields = {}
@@ -59,30 +61,23 @@ class GuardedFormMixin:
                 'GuardedFormMixin requires request=request in the form constructor.'
             )
 
-        for check in self._checks:
-            try:
-                result = check.check(self)
-                if result:
-                    self.guard_failures.append(result)
-                    self.add_error(None, check.message)
-            except Exception:
-                if check.fail_open:
-                    logger.exception(
-                        'formguard check %s.%s raised an exception, skipping',
-                        type(check).__module__,
-                        type(check).__qualname__,
-                    )
-                else:
-                    logger.exception(
-                        'formguard check %s.%s raised an exception, failing closed',
-                        type(check).__module__,
-                        type(check).__qualname__,
-                    )
-                    self.guard_failures.append('check error')
-                    self.add_error(None, check.message)
+        self.guard_results = run_checks(self)
+        self.guard_failures = [r for r in self.guard_results if not r.passed]
+
+        for failure in self.guard_failures:
+            self.add_error(None, failure.check.message)
 
         if self.guard_failures:
             handle_bot(self.__class__, self.request, self, self.guard_failures)
+            guard_failed.send(
+                sender=self.__class__, request=self.request,
+                form=self, results=self.guard_results,
+            )
+
+        guard_checked.send(
+            sender=self.__class__, request=self.request,
+            form=self, results=self.guard_results,
+        )
 
     @property
     def guard_fields(self):

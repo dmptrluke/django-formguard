@@ -21,8 +21,8 @@ class GuardedFormTestMixinTests(GuardedFormTestMixin, SimpleTestCase):
         form = MagicMock()
         form.cleaned_data = data
         form._checks = get_checks()
-        reasons = run_checks(form)
-        assert reasons == []
+        results = run_checks(form)
+        assert all(r.passed for r in results)
 
     # overrides are applied on top of generated data
     def test_overrides_applied(self):

@@ -7,8 +7,10 @@ from django.core import signing
 from django.core.exceptions import ImproperlyConfigured
 from django.forms import CharField, HiddenInput, Media
 from django.utils.module_loading import import_string
+from django.utils.translation import gettext_lazy as _
 
 from formguard.conf import get_setting
+from formguard.results import GuardResult
 from formguard.widgets import HoneypotWidget
 
 logger = logging.getLogger('formguard')
@@ -20,7 +22,7 @@ class BaseCheck:
     """Base class for formguard checks."""
 
     fail_open = False
-    message = 'Something went wrong. Please try again.'
+    message = _('Something went wrong. Please try again.')
     settings_prefix = ''
     defaults = {}
 
@@ -217,14 +219,16 @@ def get_checks():
 
 
 def run_checks(form):
-    """Run all checks attached to the form. Return list of reason strings."""
-    reasons = []
+    """Run all checks attached to the form. Return list of GuardResult objects."""
+    results = []
 
     for check in form._checks:
         try:
-            result = check.check(form)
-            if result:
-                reasons.append(result)
+            reason = check.check(form)
+            if reason:
+                results.append(GuardResult(check=check, reason=reason, passed=False))
+            else:
+                results.append(GuardResult(check=check, passed=True))
         except Exception:
             if check.fail_open:
                 logger.exception(
@@ -232,12 +236,15 @@ def run_checks(form):
                     type(check).__module__,
                     type(check).__qualname__,
                 )
+                results.append(GuardResult(check=check, passed=True))
             else:
                 logger.exception(
                     'formguard check %s.%s raised an exception, failing closed',
                     type(check).__module__,
                     type(check).__qualname__,
                 )
-                reasons.append('check error')
+                results.append(GuardResult(
+                    check=check, reason='check error', passed=False,
+                ))
 
-    return reasons
+    return results

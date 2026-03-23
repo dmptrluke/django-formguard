@@ -5,9 +5,9 @@ class GuardedFormTestMixin:
     """Mixin for TestCase classes that test guarded forms."""
 
     def guard_data(self, form_class=None, **overrides):
-        """Return valid guard POST data, using the form's checks if it defines formguard_checks."""
-        if form_class and hasattr(form_class, 'formguard_checks'):
-            checks = resolve_checks(form_class.formguard_checks)
+        """Return valid guard POST data, using the form's checks if it defines guard_checks."""
+        if form_class and hasattr(form_class, 'guard_checks'):
+            checks = resolve_checks(form_class.guard_checks)
         else:
             checks = get_checks()
         data = {}

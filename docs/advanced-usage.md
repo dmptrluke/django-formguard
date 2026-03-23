@@ -21,16 +21,27 @@ the active checks require. It adapts automatically when you change checks.
 ## Per-Form Checks
 
 By default, all forms use the global `FORMGUARD_CHECKS` setting. To use
-different checks on a specific form, set `formguard_checks` on the class:
+different checks on a specific form, set `guard_checks` on the class:
 
 ```python
 class ContactForm(GuardedFormMixin, forms.Form):
-    formguard_checks = [
+    guard_checks = [
         'formguard.checks.FieldTrapCheck',
         'formguard.checks.TokenCheck',
     ]
     name = forms.CharField()
     message = forms.CharField(widget=forms.Textarea)
+```
+
+To start from the defaults and exclude specific checks, use `default_checks()`:
+
+```python
+from formguard.conf import default_checks
+
+class LoginForm(GuardedFormMixin, forms.Form):
+    guard_checks = default_checks(exclude=['formguard.checks.InteractionCheck'])
+    username = forms.CharField()
+    password = forms.CharField(widget=forms.PasswordInput)
 ```
 
 When testing forms with per-form checks, pass the form class to
@@ -40,23 +51,23 @@ When testing forms with per-form checks, pass the form class to
 data = self.guard_data(form_class=ContactForm)
 ```
 
-## Stealth Reject
+## Silent Reject
 
 By default, guard check failures re-render the form with errors like any
 other form validation. To silently redirect bots to a fake success page
-instead, set `stealth_reject = True` on the view:
+instead, set `guard_silent_reject = True` on the view:
 
 ```python
 class ContactView(GuardedFormViewMixin, FormView):
     form_class = ContactForm
     template_name = 'contact.html'
     success_url = '/thanks/'
-    stealth_reject = True
-    stealth_message = 'Your message has been sent.'  # optional
+    guard_silent_reject = True
+    guard_silent_message = 'Your message has been sent.'  # optional
 ```
 
-With `stealth_reject = True`, bots get a redirect to `success_url`. Set
-`stealth_message` to add a Django success message to the redirect (making
+With `guard_silent_reject = True`, bots get a redirect to `success_url`. Set
+`guard_silent_message` to add a Django success message to the redirect (making
 it indistinguishable from a real submission). Regular validation errors
 (e.g. missing required fields) still re-render the form normally.
 

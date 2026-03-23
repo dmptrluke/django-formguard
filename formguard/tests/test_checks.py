@@ -225,54 +225,66 @@ class RunChecksTests(SimpleTestCase):
         form._checks = checks
         return form
 
-    # all checks pass returns empty list
+    # all checks pass returns results with passed=True
     def test_all_pass(self):
         form = self._make_form([PassingCheck()])
-        reasons = run_checks(form)
-        assert reasons == []
+        results = run_checks(form)
+        assert len(results) == 1
+        assert results[0].passed is True
 
-    # failing check returns reason string
+    # failing check returns GuardResult with reason
     def test_failing_check(self):
         form = self._make_form([FailingCheck()])
-        reasons = run_checks(form)
-        assert reasons == ['check failed']
+        results = run_checks(form)
+        assert len(results) == 1
+        assert results[0] == 'check failed'
+        assert results[0].passed is False
 
-    # multiple checks: mix of pass and fail
+    # multiple checks: all produce results
     def test_mixed_checks(self):
         form = self._make_form([PassingCheck(), FailingCheck(), PassingCheck()])
-        reasons = run_checks(form)
-        assert reasons == ['check failed']
+        results = run_checks(form)
+        assert len(results) == 3
+        failures = [r for r in results if not r.passed]
+        assert len(failures) == 1
+        assert failures[0] == 'check failed'
 
-    # crashing fail_open check is logged and skipped
+    # crashing fail_open check produces a passed result
     def test_fail_open_exception(self):
         form = self._make_form([CrashingCheck()])
-        reasons = run_checks(form)
-        assert reasons == []
+        results = run_checks(form)
+        assert len(results) == 1
+        assert results[0].passed is True
 
-    # crashing fail_closed check appends a reason
+    # crashing fail_closed check produces a failed result
     def test_fail_closed_exception(self):
         form = self._make_form([CrashingFailClosedCheck()])
-        reasons = run_checks(form)
-        assert len(reasons) == 1
-        assert reasons[0] == 'check error'
+        results = run_checks(form)
+        assert len(results) == 1
+        assert results[0] == 'check error'
+        assert results[0].passed is False
 
     # fail_open exception does not block other checks
     def test_fail_open_continues(self):
         form = self._make_form([CrashingCheck(), FailingCheck()])
-        reasons = run_checks(form)
-        assert reasons == ['check failed']
+        results = run_checks(form)
+        assert len(results) == 2
+        failures = [r for r in results if not r.passed]
+        assert failures == ['check failed']
 
     # fail_closed exception does not block other checks
     def test_fail_closed_continues(self):
         form = self._make_form([CrashingFailClosedCheck(), PassingCheck()])
-        reasons = run_checks(form)
-        assert reasons == ['check error']
+        results = run_checks(form)
+        assert len(results) == 2
+        failures = [r for r in results if not r.passed]
+        assert failures == ['check error']
 
     # empty check list returns empty list
     def test_no_checks(self):
         form = self._make_form([])
-        reasons = run_checks(form)
-        assert reasons == []
+        results = run_checks(form)
+        assert results == []
 
 
 class FieldTrapCheckTests(SimpleTestCase):

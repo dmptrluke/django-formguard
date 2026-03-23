@@ -42,13 +42,19 @@ Add `GuardedFormMixin` to your form.
 
 ```python
 from django import forms
+from formguard.conf import default_checks
 from formguard.forms import GuardedFormMixin
 
 class ContactForm(GuardedFormMixin, forms.Form):
+    guard_checks = default_checks(exclude=['formguard.checks.InteractionCheck'])
+
     name = forms.CharField()
     email = forms.EmailField()
     message = forms.CharField(widget=forms.Textarea)
 ```
+
+`default_checks()` returns the built-in check list. Use `include` and `exclude`
+to customize it, or omit `guard_checks` entirely to use all defaults.
 
 ### 2. Set up your template
 
@@ -91,7 +97,7 @@ class ContactView(GuardedFormViewMixin, FormView):
         return super().form_valid(form)
 ```
 
-If a check fails, the form returns an error message. Set `stealth_reject = True`
+If a check fails, the form returns an error message. Set `guard_silent_reject = True`
 on the view to redirect bots to a fake success page instead.
 
 **Function-based views** - For function based views and other options see
@@ -103,9 +109,9 @@ All settings are optional. Defaults work out of the box. All four built-in
 checks are enabled by default.
 
 ```python
-# add a custom check alongside the defaults
-from formguard.conf import DEFAULTS
-FORMGUARD_CHECKS = DEFAULTS['CHECKS'] + [
+# add a custom check alongside the builtins
+from formguard.conf import BUILTINS
+FORMGUARD_CHECKS = BUILTINS + [
     'myapp.checks.TurnstileCheck',
 ]
 
@@ -118,7 +124,7 @@ FORMGUARD_TOKEN_MAX_SECONDS = 3600           # default
 ## Further Reading
 
 - [Custom Checks](docs/custom-checks.md) - write your own checks (CAPTCHA, rate limiting, etc.)
-- [Advanced Usage](docs/advanced-usage.md) - per-form checks, stealth reject, FBV pattern
+- [Advanced Usage](docs/advanced-usage.md) - per-form checks, silent reject, FBV pattern
 - [Testing](docs/testing.md) - test helpers for guarded forms
 - [Signals](docs/signals.md) - hook into bot detection events
 

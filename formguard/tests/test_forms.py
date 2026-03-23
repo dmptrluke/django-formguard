@@ -4,7 +4,7 @@ from django import forms
 from django.core.exceptions import ImproperlyConfigured
 from django.test import SimpleTestCase, override_settings
 
-from formguard.checks import BaseCheck
+from formguard.checks import BaseCheck, FieldTrapCheck
 from formguard.forms import GuardedFormMixin
 from formguard.widgets import HoneypotWidget
 
@@ -86,10 +86,10 @@ class GuardedFormMixinTests(SimpleTestCase):
         assert 'name="name"' not in html
         assert 'name="email"' not in html
 
-    # formguard_checks class attribute overrides global setting
+    # guard_checks class attribute overrides global setting
     def test_per_form_checks(self):
         class HoneypotOnlyForm(GuardedFormMixin, forms.Form):
-            formguard_checks = ['formguard.checks.FieldTrapCheck']
+            guard_checks = ['formguard.checks.FieldTrapCheck']
             name = forms.CharField()
 
         form = HoneypotOnlyForm()
@@ -107,6 +107,11 @@ class GuardedFormMixinTests(SimpleTestCase):
     def test_guard_failures_initialized(self):
         form = SampleForm()
         assert form.guard_failures == []
+
+    # guard_results initialized as empty list
+    def test_guard_results_initialized(self):
+        form = SampleForm()
+        assert form.guard_results == []
 
     # request defaults to None when not passed
     def test_request_defaults_to_none(self):
@@ -134,14 +139,30 @@ class IsValidTests(SimpleTestCase):
         assert form.is_valid() is False
         assert form.guard_failures == []  # checks never ran
 
-    # guard failures populate form.errors and guard_failures
+    # guard failures carry structured check data
     @override_settings(FORMGUARD_CHECKS=['formguard.checks.FieldTrapCheck'])
-    def test_guard_failure_populates_errors(self):
+    def test_guard_failure_has_structured_data(self):
         data = {'name': 'Bot', 'email': 'bot@example.com', 'website': 'http://spam.com'}
         form = SampleForm(data, request=_make_request())
         assert form.is_valid() is False
-        assert 'honeypot field filled' in form.guard_failures
-        assert form.errors  # non-field errors present
+        failure = form.guard_failures[0]
+        assert failure == 'honeypot field filled'
+        assert failure.passed is False
+        assert isinstance(failure.check, FieldTrapCheck)
+        assert str(failure) == 'honeypot field filled'
+
+    # guard_results includes passed checks
+    @override_settings(FORMGUARD_CHECKS=['formguard.checks.FieldTrapCheck'])
+    def test_guard_results_includes_passes(self):
+        from formguard.test import GuardedFormTestMixin
+
+        mixin = GuardedFormTestMixin()
+        data = {'name': 'Alice', 'email': 'alice@example.com', **mixin.guard_data()}
+        form = SampleForm(data, request=_make_request())
+        form.is_valid()
+        assert len(form.guard_results) == 1
+        assert form.guard_results[0].passed is True
+        assert isinstance(form.guard_results[0].check, FieldTrapCheck)
 
     # is_valid raises ImproperlyConfigured when request is None
     @override_settings(FORMGUARD_CHECKS=['formguard.checks.FieldTrapCheck'])
@@ -194,46 +215,89 @@ class IsValidTests(SimpleTestCase):
         data = {'name': 'Alice', 'email': 'alice@example.com'}
         form = SampleForm(data, request=_make_request())
         assert form.is_valid() is False
-        assert 'check error' in form.guard_failures
+        assert form.guard_failures[0] == 'check error'
 
-    # signal fires when guard checks fail
+    # guard_failed signal fires when guard checks fail
     @override_settings(FORMGUARD_CHECKS=['formguard.checks.FieldTrapCheck'])
-    def test_signal_fires_on_guard_failure(self):
-        from formguard.signals import guard_triggered
+    def test_guard_failed_signal(self):
+        from formguard.signals import guard_failed
 
         received = []
 
         def handler(sender, **kwargs):
             received.append(kwargs)
 
-        guard_triggered.connect(handler)
+        guard_failed.connect(handler)
         try:
             data = {'name': 'Bot', 'email': 'bot@example.com', 'website': 'http://spam.com'}
             form = SampleForm(data, request=_make_request())
             form.is_valid()
             assert len(received) == 1
-            assert 'honeypot field filled' in received[0]['reasons']
+            assert 'honeypot field filled' in received[0]['results']
         finally:
-            guard_triggered.disconnect(handler)
+            guard_failed.disconnect(handler)
 
-    # signal does not fire when all checks pass
+    # guard_failed signal does not fire when all checks pass
     @override_settings(FORMGUARD_CHECKS=['formguard.checks.FieldTrapCheck'])
-    def test_signal_not_fired_on_clean_form(self):
-        from formguard.signals import guard_triggered
+    def test_guard_failed_not_fired_on_clean_form(self):
+        from formguard.signals import guard_failed
 
         received = []
 
         def handler(sender, **kwargs):
             received.append(kwargs)
 
-        guard_triggered.connect(handler)
+        guard_failed.connect(handler)
         try:
             data = {'name': 'Alice', 'email': 'alice@example.com', 'website': ''}
             form = SampleForm(data, request=_make_request())
             form.is_valid()
             assert len(received) == 0
         finally:
-            guard_triggered.disconnect(handler)
+            guard_failed.disconnect(handler)
+
+    # guard_checked signal fires on every check run (pass or fail)
+    @override_settings(FORMGUARD_CHECKS=['formguard.checks.FieldTrapCheck'])
+    def test_guard_checked_fires_on_pass(self):
+        from formguard.signals import guard_checked
+        from formguard.test import GuardedFormTestMixin
+
+        received = []
+
+        def handler(sender, **kwargs):
+            received.append(kwargs)
+
+        mixin = GuardedFormTestMixin()
+        guard_checked.connect(handler)
+        try:
+            data = {'name': 'Alice', 'email': 'alice@example.com', **mixin.guard_data()}
+            form = SampleForm(data, request=_make_request())
+            form.is_valid()
+            assert len(received) == 1
+            assert len(received[0]['results']) == 1
+            assert received[0]['results'][0].passed is True
+        finally:
+            guard_checked.disconnect(handler)
+
+    # guard_checked signal fires when checks fail too
+    @override_settings(FORMGUARD_CHECKS=['formguard.checks.FieldTrapCheck'])
+    def test_guard_checked_fires_on_failure(self):
+        from formguard.signals import guard_checked
+
+        received = []
+
+        def handler(sender, **kwargs):
+            received.append(kwargs)
+
+        guard_checked.connect(handler)
+        try:
+            data = {'name': 'Bot', 'email': 'bot@example.com', 'website': 'http://spam.com'}
+            form = SampleForm(data, request=_make_request())
+            form.is_valid()
+            assert len(received) == 1
+            assert 'honeypot field filled' in received[0]['results']
+        finally:
+            guard_checked.disconnect(handler)
 
 
 # Stub checks for collision testing

@@ -28,17 +28,26 @@ class TestContactView(GuardedFormTestMixin, TestCase):
 
 ## Per-Form Checks
 
-If your form defines `formguard_checks`, pass the form class so the helper
+If your form defines `guard_checks`, pass the form class so the helper
 generates data for the right checks:
 
 ```python
-class TestContactView(GuardedFormTestMixin, TestCase):
+from formguard.conf import default_checks
+
+class LoginForm(GuardedFormMixin, forms.Form):
+    guard_checks = default_checks(exclude=['formguard.checks.InteractionCheck'])
+    username = forms.CharField()
+    password = forms.CharField(widget=forms.PasswordInput)
+
+
+class TestLoginView(GuardedFormTestMixin, TestCase):
     def test_submission_works(self):
         data = {
-            'name': 'Test',
-            **self.guard_data(form_class=ContactForm),
+            'username': 'alice',
+            'password': 'secret',
+            **self.guard_data(form_class=LoginForm),
         }
-        response = self.client.post('/contact/', data)
+        response = self.client.post('/login/', data)
         assert response.status_code == 302
 ```
 

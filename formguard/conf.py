@@ -1,13 +1,25 @@
 from django.conf import settings
 
+BUILTINS = [
+    'formguard.checks.FieldTrapCheck',
+    'formguard.checks.TokenCheck',
+    'formguard.checks.JsChallengeCheck',
+    'formguard.checks.InteractionCheck',
+]
+
 DEFAULTS = {
-    'CHECKS': [
-        'formguard.checks.FieldTrapCheck',
-        'formguard.checks.TokenCheck',
-        'formguard.checks.JsChallengeCheck',
-        'formguard.checks.InteractionCheck',
-    ],
+    'CHECKS': BUILTINS,
 }
+
+
+def default_checks(include=None, exclude=None):
+    """Return the configured check list, optionally adding or removing checks."""
+    checks = list(get_setting('CHECKS'))
+    if exclude:
+        checks = [c for c in checks if c not in exclude]
+    if include:
+        checks.extend(include)
+    return checks
 
 
 def get_setting(name):
