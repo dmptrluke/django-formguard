@@ -64,12 +64,11 @@ class InterstitialForm(GuardedFormMixin, forms.Form):
     guard_check_options = {
         'formguard.contrib.turnstile.TurnstileCheck': {
             'CALLBACK': 'onTurnstileComplete',
+            'APPEARANCE': 'interaction-only',
         },
     }
 ```
 
-Invisible widgets are configured via the sitekey type in the Cloudflare
-dashboard, not via a data attribute.
 
 See [Configuration](configuration.md) for how `guard_check_options` works.
 
