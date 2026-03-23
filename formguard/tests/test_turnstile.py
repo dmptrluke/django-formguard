@@ -70,15 +70,15 @@ class TurnstileWidgetTests(SimpleTestCase):
 class VerifyTokenTests(SimpleTestCase):
     # test key bypass: always-pass key returns True
     def test_bypass_pass(self):
-        assert verify_token('any-token', '1x-0000000000000000000000000000000AA') is True
+        assert verify_token('any-token', '1x0000000000000000000000000000000AA') is True
 
     # test key bypass: always-fail key returns False
     def test_bypass_fail(self):
-        assert verify_token('any-token', '2x-0000000000000000000000000000000AA') is False
+        assert verify_token('any-token', '2x0000000000000000000000000000000AA') is False
 
     # test key bypass: force-challenge key returns False
     def test_bypass_challenge(self):
-        assert verify_token('any-token', '3x-0000000000000000000000000000000AA') is False
+        assert verify_token('any-token', '3x0000000000000000000000000000000AA') is False
 
     # real HTTP path: successful verification
     @patch('formguard.contrib.turnstile.checks.urllib.request.urlopen')
@@ -208,14 +208,14 @@ class TurnstileCheckTests(SimpleTestCase):
         assert check.check(form) == 'turnstile not completed'
 
     # check passes with test key bypass (always-pass)
-    @override_settings(FORMGUARD_TURNSTILE_SECRET_KEY='1x-0000000000000000000000000000000AA')
+    @override_settings(FORMGUARD_TURNSTILE_SECRET_KEY='1x0000000000000000000000000000000AA')
     def test_bypass_pass(self):
         check = TurnstileCheck()
         form = self._make_form({'cf-turnstile-response': 'test-token'})
         assert check.check(form) is False
 
     # check fails with test key bypass (always-fail)
-    @override_settings(FORMGUARD_TURNSTILE_SECRET_KEY='2x-0000000000000000000000000000000AA')
+    @override_settings(FORMGUARD_TURNSTILE_SECRET_KEY='2x0000000000000000000000000000000AA')
     def test_bypass_fail(self):
         check = TurnstileCheck()
         form = self._make_form({'cf-turnstile-response': 'test-token'})
@@ -236,7 +236,7 @@ class TurnstileCheckTests(SimpleTestCase):
         check = TurnstileCheck()
         fields = check.get_fields()
         widget = fields['cf-turnstile-response'].widget
-        assert widget.site_key == '1x-0000000000000000000000000000000AA'
+        assert widget.site_key == '1x00000000000000000000AA'
 
     # get_fields widget uses theme and size from settings
     @override_settings(FORMGUARD_TURNSTILE_THEME='dark', FORMGUARD_TURNSTILE_SIZE='compact')

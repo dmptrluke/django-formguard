@@ -74,8 +74,8 @@ Cloudflare publishes test keys that skip real verification. Configure them in
 your test settings:
 
 ```python
-FORMGUARD_TURNSTILE_SITE_KEY = '1x-0000000000000000000000000000000AA'
-FORMGUARD_TURNSTILE_SECRET_KEY = '1x-0000000000000000000000000000000AA'
+FORMGUARD_TURNSTILE_SITE_KEY = '1x00000000000000000000AA'
+FORMGUARD_TURNSTILE_SECRET_KEY = '1x0000000000000000000000000000000AA'
 ```
 
 With test keys configured, `guard_data()` works without network access:
@@ -90,8 +90,9 @@ class SignupViewTests(GuardedFormTestMixin, TestCase):
         assert response.status_code == 302
 ```
 
-The test key bypass is built into `verify_token()`. Keys starting with `1x-`
-always pass, keys starting with `2x-` or `3x-` always fail. No mocking needed.
+The test key bypass is built into `verify_token()`. Cloudflare's always-pass
+secret key skips HTTP and returns success; the always-fail and token-spent keys
+return failure. No mocking needed.
 
 ## Async views
 

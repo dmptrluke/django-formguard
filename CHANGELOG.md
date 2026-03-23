@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.1
+
+- Fix test key bypass to use Cloudflare's actual published test keys (no dash)
+- Use correct sitekey length in test settings and docs
+
 ## 0.7.0
 
 - `formguard.contrib.turnstile` adds Cloudflare Turnstile verification as a check
