@@ -27,8 +27,8 @@ def verify_token(token, secret_key, ip=None, timeout=5):
     if ip:
         payload['remoteip'] = ip
     data = urllib.parse.urlencode(payload).encode()
-    req = urllib.request.Request(TURNSTILE_VERIFY_URL, data=data)
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    req = urllib.request.Request(TURNSTILE_VERIFY_URL, data=data)  # noqa: S310
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
         return json.loads(resp.read()).get('success', False)
 
 

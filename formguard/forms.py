@@ -90,7 +90,7 @@ class GuardedFormMixin:
         for check in self._checks:
             for name in check.get_fields():
                 output.append(str(self[name]))
-        return mark_safe('\n'.join(output))
+        return mark_safe('\n'.join(output))  # noqa: S308
 
     @property
     def media(self):
