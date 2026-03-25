@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.3
+
+- Fix build issue.
+
 ## 0.8.2
 
 - Fix `guard_check_options` to work with global checks (no longer requires `guard_checks` to be set)
