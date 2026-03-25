@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
       - run: uvx ruff check .
       - run: uvx ruff format --check .
 
@@ -39,5 +39,5 @@ jobs:
     name: test (py${{ matrix.python }}-dj${{ matrix.django }})
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
       - run: uv run --python ${{ matrix.python }} --with "django~=${{ matrix.django }}.0" --group test python -m pytest
