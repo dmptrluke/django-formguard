@@ -7,16 +7,16 @@ from django.forms import CharField, HiddenInput, Media
 from django.test import SimpleTestCase, override_settings
 
 from formguard.checks import (
-    SIGNING_SALT,
+    _SIGNING_SALT,
     BaseCheck,
     FieldTrapCheck,
     InteractionCheck,
     JsChallengeCheck,
     TokenCheck,
-    get_checks,
     resolve_checks,
     run_checks,
 )
+from formguard.conf import get_config
 from formguard.widgets import HoneypotWidget
 
 # -- Stub checks for testing --
@@ -24,7 +24,7 @@ from formguard.widgets import HoneypotWidget
 
 class PassingCheck(BaseCheck):
     def check(self, form):
-        return False
+        return None
 
 
 class FailingCheck(BaseCheck):
@@ -72,7 +72,7 @@ class CheckWithTestData(BaseCheck):
         return {'honeypot': ''}
 
     def check(self, form):
-        return False
+        return None
 
 
 def not_a_check():
@@ -231,7 +231,7 @@ class GetChecksTests(SimpleTestCase):
     # imports and instantiates valid check classes
     @override_settings(FORMGUARD_CHECKS=['formguard.tests.test_checks.PassingCheck'])
     def test_valid_check(self):
-        checks = get_checks()
+        checks = resolve_checks(get_config('CHECKS'))
         assert len(checks) == 1
         assert isinstance(checks[0], PassingCheck)
 
@@ -243,7 +243,7 @@ class GetChecksTests(SimpleTestCase):
         ]
     )
     def test_multiple_checks(self):
-        checks = get_checks()
+        checks = resolve_checks(get_config('CHECKS'))
         assert len(checks) == 2
         assert isinstance(checks[0], PassingCheck)
         assert isinstance(checks[1], FailingCheck)
@@ -252,18 +252,18 @@ class GetChecksTests(SimpleTestCase):
     @override_settings(FORMGUARD_CHECKS=['formguard.does_not_exist.FakeCheck'])
     def test_bad_import(self):
         with self.assertRaises(ImproperlyConfigured):
-            get_checks()
+            resolve_checks(get_config('CHECKS'))
 
     # raises ImproperlyConfigured when path points to non-BaseCheck
     @override_settings(FORMGUARD_CHECKS=['formguard.tests.test_checks.not_a_check'])
     def test_not_a_subclass(self):
         with self.assertRaises(ImproperlyConfigured):
-            get_checks()
+            resolve_checks(get_config('CHECKS'))
 
     # empty check list returns empty list
     @override_settings(FORMGUARD_CHECKS=[])
     def test_empty_checks(self):
-        checks = get_checks()
+        checks = resolve_checks(get_config('CHECKS'))
         assert checks == []
 
 
@@ -285,7 +285,7 @@ class RunChecksTests(SimpleTestCase):
         form = self._make_form([FailingCheck()])
         results = run_checks(form)
         assert len(results) == 1
-        assert results[0] == 'check failed'
+        assert results[0].reason == 'check failed'
         assert results[0].passed is False
 
     # multiple checks: all produce results
@@ -295,7 +295,8 @@ class RunChecksTests(SimpleTestCase):
         assert len(results) == 3
         failures = [r for r in results if not r.passed]
         assert len(failures) == 1
-        assert failures[0] == 'check failed'
+        reasons = [r.reason for r in failures]
+        assert reasons == ['check failed']
 
     # crashing fail_open check produces a passed result
     def test_fail_open_exception(self):
@@ -309,7 +310,7 @@ class RunChecksTests(SimpleTestCase):
         form = self._make_form([CrashingFailClosedCheck()])
         results = run_checks(form)
         assert len(results) == 1
-        assert results[0] == 'check error'
+        assert results[0].reason == 'check error'
         assert results[0].passed is False
 
     # fail_open exception does not block other checks
@@ -318,7 +319,7 @@ class RunChecksTests(SimpleTestCase):
         results = run_checks(form)
         assert len(results) == 2
         failures = [r for r in results if not r.passed]
-        assert failures == ['check failed']
+        assert [r.reason for r in failures] == ['check failed']
 
     # fail_closed exception does not block other checks
     def test_fail_closed_continues(self):
@@ -326,7 +327,7 @@ class RunChecksTests(SimpleTestCase):
         results = run_checks(form)
         assert len(results) == 2
         failures = [r for r in results if not r.passed]
-        assert failures == ['check error']
+        assert [r.reason for r in failures] == ['check error']
 
     # empty check list returns empty list
     def test_no_checks(self):
@@ -363,7 +364,7 @@ class FieldTrapCheckTests(SimpleTestCase):
     def test_check_passes_empty(self):
         check = FieldTrapCheck()
         form = self._make_form({'website': ''})
-        assert check.check(form) is False
+        assert check.check(form) is None
 
     # check triggers when honeypot field is filled
     def test_check_triggers_filled(self):
@@ -375,7 +376,7 @@ class FieldTrapCheckTests(SimpleTestCase):
     def test_check_passes_missing(self):
         check = FieldTrapCheck()
         form = self._make_form({})
-        assert check.check(form) is False
+        assert check.check(form) is None
 
     # check uses custom field name from settings
     @override_settings(FORMGUARD_FIELD_TRAP_FIELD_NAME='phone')
@@ -420,7 +421,7 @@ class TokenCheckTests(SimpleTestCase):
         check = TokenCheck()
         token = TokenCheck._make_token(age=60)
         form = self._make_form({'fg_token': token})
-        assert check.check(form) is False
+        assert check.check(form) is None
 
     # check triggers when submitted too fast
     def test_check_triggers_too_fast(self):
@@ -457,7 +458,7 @@ class TokenCheckTests(SimpleTestCase):
         check = TokenCheck()
         token = TokenCheck._make_token(age=0)
         form = self._make_form({'fg_token': token})
-        assert check.check(form) is False
+        assert check.check(form) is None
 
     # test_data returns a valid token that passes the check
     def test_test_data(self):
@@ -465,12 +466,12 @@ class TokenCheckTests(SimpleTestCase):
         data = check.test_data()
         assert 'fg_token' in data
         form = self._make_form(data)
-        assert check.check(form) is False
+        assert check.check(form) is None
 
     # _make_token produces a signed value that can be loaded
     def test_make_token_is_valid(self):
         token = TokenCheck._make_token(age=5)
-        loaded = signing.loads(token, salt=SIGNING_SALT, max_age=3600)
+        loaded = signing.loads(token, salt=_SIGNING_SALT, max_age=3600)
         assert isinstance(loaded, float)
         assert time.time() - loaded >= 5
 
@@ -504,7 +505,7 @@ class JsChallengeCheckTests(SimpleTestCase):
         nonce = 'abc123'
         expected = format(sum(ord(c) for c in nonce) & 0xFFFF, 'x')
         form = self._make_form({'fg_nonce': nonce, 'fg_js': expected})
-        assert check.check(form) is False
+        assert check.check(form) is None
 
     # check triggers when js value is empty
     def test_check_triggers_empty_js(self):
@@ -537,7 +538,7 @@ class JsChallengeCheckTests(SimpleTestCase):
         assert 'fg_nonce' in data
         assert 'fg_js' in data
         form = self._make_form(data)
-        assert check.check(form) is False
+        assert check.check(form) is None
 
     # test_data produces consistent nonce/js pairs
     def test_test_data_consistency(self):
@@ -564,7 +565,7 @@ class InteractionCheckTests(SimpleTestCase):
     def test_check_passes_with_interaction(self):
         check = InteractionCheck()
         form = self._make_form({'fg_ia': '1'})
-        assert check.check(form) is False
+        assert check.check(form) is None
 
     # check triggers when interaction field is empty
     def test_check_triggers_empty(self):
@@ -598,4 +599,4 @@ class InteractionCheckTests(SimpleTestCase):
         data = check.test_data()
         assert data == {'fg_ia': '1'}
         form = self._make_form(data)
-        assert check.check(form) is False
+        assert check.check(form) is None

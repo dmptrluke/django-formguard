@@ -42,5 +42,4 @@ Each entry in `results` is a `formguard.results.GuardResult`:
 | `check_name` | The check class name (e.g. `'FieldTrapCheck'`) |
 | `passed` | `True` if the check passed, `False` if it triggered |
 
-`GuardResult` compares equal to its reason string, so `'honeypot field filled' in results` works.
 `str(result)` returns the reason string for failures, or the check class name for passes.

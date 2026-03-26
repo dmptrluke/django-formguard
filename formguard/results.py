@@ -1,3 +1,6 @@
+__all__ = ['GuardResult']
+
+
 class GuardResult:
     """Outcome of a single guard check: carries the check instance, reason, and pass/fail status."""
 
@@ -20,10 +23,8 @@ class GuardResult:
 
     def __eq__(self, other):
         if isinstance(other, GuardResult):
-            return self.reason == other.reason
-        if isinstance(other, str):
-            return self.reason == other
+            return self.reason == other.reason and self.passed == other.passed
         return NotImplemented
 
     def __hash__(self):
-        return hash(self.reason)
+        return hash((self.reason, self.passed))

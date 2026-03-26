@@ -1,5 +1,7 @@
 from django.forms.widgets import TextInput
 
+__all__ = ['HoneypotWidget']
+
 
 class HoneypotWidget(TextInput):
     """Text input wrapped in a hiding container. Invisible to humans, attractive to bots."""

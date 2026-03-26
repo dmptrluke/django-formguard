@@ -4,9 +4,10 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils.safestring import mark_safe
 
 from formguard.checks import resolve_checks, run_checks
-from formguard.conf import get_setting
+from formguard.conf import get_config
 from formguard.signals import guard_checked, guard_failed
-from formguard.utils import handle_bot
+
+__all__ = ['GuardedFormMixin']
 
 logger = logging.getLogger('formguard')
 
@@ -28,7 +29,7 @@ class GuardedFormMixin:
         if self.guard_checks is not None:
             self._checks = resolve_checks(self.guard_checks, self.guard_check_options)
         else:
-            self._checks = resolve_checks(get_setting('CHECKS'), self.guard_check_options)
+            self._checks = resolve_checks(get_config('CHECKS'), self.guard_check_options)
         seen_fields = {}
 
         for check in self._checks:
@@ -68,7 +69,9 @@ class GuardedFormMixin:
             self.add_error(None, failure.check.message)
 
         if self.guard_failures:
-            handle_bot(self.__class__, self.request, self, self.guard_failures)
+            addr = self.request.META.get('REMOTE_ADDR', 'unknown')
+            reasons = ', '.join(str(r) for r in self.guard_failures)
+            logger.warning('formguard triggered from %s: %s', addr, reasons)
             guard_failed.send(
                 sender=self.__class__,
                 request=self.request,

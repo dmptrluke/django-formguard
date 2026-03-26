@@ -75,7 +75,7 @@ class TurnstileCheck(BaseCheck):
         timeout = self.get_setting('TIMEOUT')
         if not verify_token(token, self.get_setting('SECRET_KEY'), ip=ip, timeout=timeout):
             return 'turnstile verification failed'
-        return False
+        return None
 
     def _get_client_ip(self, request):
         header = self.get_setting('IP_HEADER')

@@ -1,5 +1,7 @@
 from django.shortcuts import redirect
 
+__all__ = ['reject_silently']
+
 
 class reject_silently:  # noqa: N801
     """Redirect to success URL, pretending the form was accepted."""

@@ -2,6 +2,7 @@ from django.urls import path
 
 from formguard.tests.views import (
     TestCustomCallableView,
+    TestDecliningHandlerView,
     TestGuardedView,
     TestRejectSilentlyMessageView,
     TestRejectSilentlyView,
@@ -16,4 +17,5 @@ urlpatterns = [
         name='test-reject-msg',
     ),
     path('test-custom/', TestCustomCallableView.as_view(), name='test-custom'),
+    path('test-decline/', TestDecliningHandlerView.as_view(), name='test-decline'),
 ]

@@ -5,6 +5,7 @@ from django.contrib.messages import get_messages
 from django.core import signing
 from django.test import TestCase
 
+from formguard.checks import _SIGNING_SALT
 from formguard.signals import guard_failed
 from formguard.test import GuardedFormTestMixin
 
@@ -39,7 +40,7 @@ class GuardedFormViewTests(GuardedFormTestMixin, TestCase):
     # fast submission re-renders form with errors
     def test_fast_submission_rerenders(self):
         now = 1000.0
-        token = signing.dumps(now, salt='formguard')
+        token = signing.dumps(now, salt=_SIGNING_SALT)
         data = {'name': 'Bot', **self.guard_data(fg_token=token)}
         with patch('formguard.checks.time.time', return_value=now + 1):
             response = self.client.post('/test-form/', data)
@@ -144,3 +145,13 @@ class CustomFailureHandlingTests(GuardedFormTestMixin, TestCase):
 
         with self.assertRaises(ImproperlyConfigured):
             view.form_invalid(form)
+
+    # handler returning None falls through to normal form_invalid
+    def test_declining_handler_falls_through(self):
+        data = {'name': 'Bot', **self.guard_data(website='http://spam.com')}
+        response = self.client.post('/test-decline/', data)
+        # handler ran (set a flag on the form) but returned None,
+        # so the view falls through to re-render with errors (200)
+        # instead of redirecting (302 like reject_silently would)
+        assert response.status_code == 200
+        assert response.context['form'].declining_handler_called is True

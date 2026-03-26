@@ -9,9 +9,18 @@ from django.forms import CharField, HiddenInput, Media
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
 
-from formguard.conf import get_setting
 from formguard.results import GuardResult
 from formguard.widgets import HoneypotWidget
+
+__all__ = [
+    'BaseCheck',
+    'FieldTrapCheck',
+    'InteractionCheck',
+    'JsChallengeCheck',
+    'TokenCheck',
+    'resolve_checks',
+    'run_checks',
+]
 
 logger = logging.getLogger('formguard')
 
@@ -38,7 +47,7 @@ class BaseCheck:
         return Media()
 
     def check(self, form):
-        """Run the check. Return a reason string if triggered, False otherwise."""
+        """Run the check. Return a reason string if triggered, None otherwise."""
         raise NotImplementedError
 
     def test_data(self):
@@ -65,7 +74,7 @@ class BaseCheck:
         raise ImproperlyConfigured(f'{setting_name} is not configured and has no default')
 
 
-SIGNING_SALT = 'formguard'
+_SIGNING_SALT = 'formguard'
 
 
 class FieldTrapCheck(BaseCheck):
@@ -88,7 +97,7 @@ class FieldTrapCheck(BaseCheck):
         field_name = self.get_setting('FIELD_NAME')
         if form.cleaned_data.get(field_name, ''):
             return 'honeypot field filled'
-        return False
+        return None
 
     def test_data(self):
         return {self.get_setting('FIELD_NAME'): ''}
@@ -118,19 +127,19 @@ class TokenCheck(BaseCheck):
         max_seconds = self.get_setting('MAX_SECONDS')
         token_value = form.cleaned_data.get('fg_token', '')
         try:
-            loaded = signing.loads(token_value, salt=SIGNING_SALT, max_age=max_seconds)
+            loaded = signing.loads(token_value, salt=_SIGNING_SALT, max_age=max_seconds)
             if time.time() - loaded < min_seconds:
                 return 'submitted too fast'
         except (signing.BadSignature, signing.SignatureExpired, TypeError):
             return 'invalid or expired token'
-        return False
+        return None
 
     def test_data(self):
         return {'fg_token': self._make_token(age=60)}
 
     @staticmethod
     def _make_token(age=0):
-        return signing.dumps(time.time() - age, salt=SIGNING_SALT)
+        return signing.dumps(time.time() - age, salt=_SIGNING_SALT)
 
 
 class JsChallengeCheck(BaseCheck):
@@ -163,7 +172,7 @@ class JsChallengeCheck(BaseCheck):
         expected = sum(ord(c) for c in nonce_value) & 0xFFFF
         if js_value != format(expected, 'x'):
             return 'js challenge mismatch'
-        return False
+        return None
 
     def test_data(self):
         nonce = self._make_nonce()
@@ -195,7 +204,7 @@ class InteractionCheck(BaseCheck):
     def check(self, form):
         if not form.cleaned_data.get('fg_ia'):
             return 'no interaction detected'
-        return False
+        return None
 
     def test_data(self):
         return {'fg_ia': '1'}
@@ -218,11 +227,6 @@ def resolve_checks(check_paths, check_options=None):
         checks.append(cls(options=options))
 
     return checks
-
-
-def get_checks():
-    """Import and instantiate check classes from the global FORMGUARD_CHECKS setting."""
-    return resolve_checks(get_setting('CHECKS'))
 
 
 def run_checks(form):

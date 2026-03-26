@@ -164,7 +164,7 @@ class IsValidTests(SimpleTestCase):
         form = SampleForm(data, request=_make_request())
         assert form.is_valid() is False
         failure = form.guard_failures[0]
-        assert failure == 'honeypot field filled'
+        assert failure.reason == 'honeypot field filled'
         assert failure.passed is False
         assert isinstance(failure.check, FieldTrapCheck)
         assert str(failure) == 'honeypot field filled'
@@ -229,7 +229,7 @@ class IsValidTests(SimpleTestCase):
         data = {'name': 'Alice', 'email': 'alice@example.com'}
         form = SampleForm(data, request=_make_request())
         assert form.is_valid() is False
-        assert form.guard_failures[0] == 'check error'
+        assert form.guard_failures[0].reason == 'check error'
 
     # guard_failed signal fires when guard checks fail
     @override_settings(FORMGUARD_CHECKS=['formguard.checks.FieldTrapCheck'])
@@ -247,7 +247,8 @@ class IsValidTests(SimpleTestCase):
             form = SampleForm(data, request=_make_request())
             form.is_valid()
             assert len(received) == 1
-            assert 'honeypot field filled' in received[0]['results']
+            reasons = [r.reason for r in received[0]['results']]
+            assert 'honeypot field filled' in reasons
         finally:
             guard_failed.disconnect(handler)
 
@@ -309,7 +310,8 @@ class IsValidTests(SimpleTestCase):
             form = SampleForm(data, request=_make_request())
             form.is_valid()
             assert len(received) == 1
-            assert 'honeypot field filled' in received[0]['results']
+            reasons = [r.reason for r in received[0]['results']]
+            assert 'honeypot field filled' in reasons
         finally:
             guard_checked.disconnect(handler)
 
@@ -320,7 +322,7 @@ class DuplicateFieldCheckA(BaseCheck):
         return {'duplicate_field': forms.CharField()}
 
     def check(self, form):
-        return False
+        return None
 
 
 class DuplicateFieldCheckB(BaseCheck):
@@ -328,4 +330,4 @@ class DuplicateFieldCheckB(BaseCheck):
         return {'duplicate_field': forms.CharField()}
 
     def check(self, form):
-        return False
+        return None

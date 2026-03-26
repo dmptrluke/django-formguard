@@ -44,7 +44,8 @@ class ContactView(GuardedFormViewMixin, FormView):
     guard_on_failure = log_and_reject
 ```
 
-The callable must return an `HttpResponse`. `form.guard_failures` contains the
+The callable must return an `HttpResponse`, or `None` to decline and fall
+through to normal form error rendering. `form.guard_failures` contains the
 list of `GuardResult` objects that triggered the failure.
 
 ## Override `form_invalid()`

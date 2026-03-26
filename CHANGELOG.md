@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.9.0
+
+**Breaking:** API stabilization for 1.0.
+
+- `check()` returns `None` instead of `False` for passing checks
+- `GuardResult` no longer compares equal to plain strings; use `.reason` to access the failure string
+- `GuardResult` equality now includes `.passed` (two results with the same reason but different pass/fail are no longer equal)
+- `guard_on_failure` handlers can return `None` to decline and fall through to normal form error rendering
+- `guard_data()` fix: passing `form_class` with global checks no longer crashes; `guard_check_options` flows through correctly
+- `get_checks()` removed; use `resolve_checks(get_config('CHECKS'))` directly
+- `formguard.conf.get_setting` renamed to `get_config` to avoid shadowing `BaseCheck.get_setting`
+- `formguard.utils` module removed; bot detection logging is now internal to `GuardedFormMixin`
+- `SIGNING_SALT` constant is now internal (`_SIGNING_SALT`)
+- `__all__` defined on all public modules
+- W002 system check warns when a check's required settings are missing (e.g. Turnstile without `SITE_KEY`)
+
+**Migration:** Custom checks: change `return False` to `return None`. Signal handlers comparing `GuardResult` to strings: use `result.reason == '...'` or `[r.reason for r in results]`. Code importing `get_setting` from `formguard.conf`: rename to `get_config`. Code importing `handle_bot` from `formguard.utils` or `SIGNING_SALT` from `formguard.checks`: remove
+
 ## 0.8.3
 
 - Fix build issue.

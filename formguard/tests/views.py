@@ -52,3 +52,15 @@ class TestCustomCallableView(GuardedFormViewMixin, FormView):
 
     def form_valid(self, form):
         return super().form_valid(form)
+
+
+def _declining_handler(request, form, success_url=None, **kwargs):
+    form.declining_handler_called = True
+    return None
+
+
+class TestDecliningHandlerView(GuardedFormViewMixin, FormView):
+    form_class = TestForm
+    template_name = 'formguard/tests/form.html'
+    success_url = '/success/'
+    guard_on_failure = _declining_handler

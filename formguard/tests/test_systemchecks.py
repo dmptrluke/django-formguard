@@ -57,6 +57,25 @@ class SystemCheckTests(SimpleTestCase):
         errors = check_settings()
         assert errors == []
 
+    # check with missing required setting produces W002
+    @override_settings(
+        FORMGUARD_CHECKS=['formguard.contrib.turnstile.TurnstileCheck'],
+    )
+    def test_w002_missing_required_setting(self):
+        from django.conf import settings
+
+        # remove the test settings to trigger the warning
+        saved_key = settings.FORMGUARD_TURNSTILE_SITE_KEY
+        saved_secret = settings.FORMGUARD_TURNSTILE_SECRET_KEY
+        try:
+            del settings.FORMGUARD_TURNSTILE_SITE_KEY
+            del settings.FORMGUARD_TURNSTILE_SECRET_KEY
+            errors = check_settings()
+            assert any(e.id == 'formguard.W002' for e in errors)
+        finally:
+            settings.FORMGUARD_TURNSTILE_SITE_KEY = saved_key
+            settings.FORMGUARD_TURNSTILE_SECRET_KEY = saved_secret
+
     # no FORMGUARD_CHECKS set produces no errors or warnings
     def test_default_config_no_warnings(self):
         errors = check_settings()

@@ -139,7 +139,7 @@ from formguard.contrib.turnstile import TurnstileCheck
 class ConditionalTurnstileCheck(TurnstileCheck):
     def check(self, form):
         if is_trusted_ip(form.request):
-            return False
+            return None
         return super().check(form)
 ```
 

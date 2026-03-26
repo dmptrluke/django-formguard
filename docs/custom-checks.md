@@ -18,7 +18,7 @@ class RateLimitCheck(BaseCheck):
         ip = form.request.META.get('REMOTE_ADDR')
         if is_rate_limited(ip):
             return 'rate limited'
-        return False
+        return None
 ```
 
 Register it globally in settings:
@@ -47,7 +47,7 @@ Every check can override these methods:
 
 | Method | Default | Purpose |
 |---|---|---|
-| `check(form)` | `NotImplementedError` | Return `False` if clean, or a reason string if triggered. Access `form.request` for the current request. |
+| `check(form)` | `NotImplementedError` | Return `None` if clean, or a reason string if triggered. Access `form.request` for the current request. |
 | `get_fields()` | `{}` | Return `{name: Field}` dict of form fields this check needs |
 | `get_media()` | `Media()` | Return extra CSS/JS this check needs (beyond widget media) |
 | `test_data()` | `{}` | Return valid POST data for this check's fields (used by test helpers) |
@@ -87,7 +87,7 @@ class SecretWordCheck(BaseCheck):
         answer = self.get_setting('ANSWER')
         if form.cleaned_data.get('secret_word', '') != answer:
             return 'wrong secret word'
-        return False
+        return None
 
     def test_data(self):
         return {'secret_word': self.get_setting('ANSWER')}

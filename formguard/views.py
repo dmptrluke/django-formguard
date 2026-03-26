@@ -2,6 +2,8 @@ import types
 
 from django.core.exceptions import ImproperlyConfigured
 
+__all__ = ['GuardedFormViewMixin']
+
 
 class GuardedFormViewMixin:
     """Pass request to guarded forms and handle guard failures."""
@@ -25,9 +27,11 @@ class GuardedFormViewMixin:
         if form.guard_failures and self.guard_on_failure is not None:
             if not callable(self.guard_on_failure):
                 raise ImproperlyConfigured(f'{self.__class__.__name__}.guard_on_failure must be callable.')
-            return self.guard_on_failure(
+            response = self.guard_on_failure(
                 self.request,
                 form,
                 success_url=self.get_success_url(),
             )
+            if response is not None:
+                return response
         return super().form_invalid(form)

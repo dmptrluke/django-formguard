@@ -1,12 +1,12 @@
 from django.test import SimpleTestCase, override_settings
 
-from formguard.conf import DEFAULTS, default_checks, get_setting
+from formguard.conf import DEFAULTS, default_checks, get_config
 
 
-class GetSettingTests(SimpleTestCase):
+class GetConfigTests(SimpleTestCase):
     # returns default check list
     def test_default_checks(self):
-        checks = get_setting('CHECKS')
+        checks = get_config('CHECKS')
         assert checks == [
             'formguard.checks.FieldTrapCheck',
             'formguard.checks.TokenCheck',

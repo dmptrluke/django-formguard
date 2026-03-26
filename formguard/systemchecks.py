@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.checks import Error
 from django.core.checks import Warning as CheckWarning
+from django.core.exceptions import ImproperlyConfigured
 from django.utils.module_loading import import_string
 
 from formguard.checks import BaseCheck
@@ -67,7 +68,17 @@ def check_settings(**kwargs):
     field_owners = {}
     for _path, cls in valid_classes:
         instance = cls()
-        for name in instance.get_fields():
+        try:
+            fields = instance.get_fields()
+        except ImproperlyConfigured as e:
+            errors.append(
+                CheckWarning(
+                    f'{cls.__name__}: {e}',
+                    id='formguard.W002',
+                )
+            )
+            continue
+        for name in fields:
             if name in field_owners:
                 errors.append(
                     Error(

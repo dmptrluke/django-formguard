@@ -236,7 +236,7 @@ class TurnstileCheckTests(SimpleTestCase):
     def test_bypass_pass(self):
         check = TurnstileCheck()
         form = self._make_form({'cf-turnstile-response': 'test-token'})
-        assert check.check(form) is False
+        assert check.check(form) is None
 
     # check fails with test key bypass (always-fail)
     @override_settings(FORMGUARD_TURNSTILE_SECRET_KEY='2x0000000000000000000000000000000AA')
@@ -302,7 +302,7 @@ class TurnstileCheckTests(SimpleTestCase):
         check = TurnstileCheck()
         data = check.test_data()
         form = self._make_form(data)
-        assert check.check(form) is False
+        assert check.check(form) is None
 
     # missing SITE_KEY raises ImproperlyConfigured
     @override_settings()

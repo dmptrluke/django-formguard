@@ -17,21 +17,22 @@ class GuardResultTests(SimpleTestCase):
         b = GuardResult(reason='submitted too fast', passed=False)
         assert a != b
 
-    # result can be compared to a plain string via reason
-    def test_eq_string(self):
-        r = GuardResult(reason='honeypot field filled', passed=False)
-        assert r == 'honeypot field filled'
-        assert r != 'something else'
+    # results with same reason but different passed are not equal
+    def test_eq_same_reason_different_passed(self):
+        a = GuardResult(reason='honeypot field filled', passed=False)
+        b = GuardResult(reason='honeypot field filled', passed=True)
+        assert a != b
 
     # comparison to unrelated types returns NotImplemented
     def test_eq_unrelated_type(self):
         r = GuardResult(reason='test', passed=False)
         assert r.__eq__(42) is NotImplemented
+        assert r.__eq__('test') is NotImplemented
 
-    # same-reason results hash identically (usable as set/dict keys)
-    def test_hash_same_reason(self):
+    # equal results hash identically (usable as set/dict keys)
+    def test_hash_equal_results(self):
         a = GuardResult(reason='honeypot field filled', passed=False)
-        b = GuardResult(reason='honeypot field filled', passed=True)
+        b = GuardResult(reason='honeypot field filled', passed=False)
         assert hash(a) == hash(b)
         assert len({a, b}) == 1
 

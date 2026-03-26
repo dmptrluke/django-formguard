@@ -68,5 +68,5 @@ class MyCheck(BaseCheck):
     def check(self, form):
         if form.cleaned_data.get('my_field') != 'valid-value':
             return 'invalid'
-        return False
+        return None
 ```
