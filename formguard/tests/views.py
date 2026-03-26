@@ -56,7 +56,7 @@ class TestCustomCallableView(GuardedFormViewMixin, FormView):
 
 def _declining_handler(request, form, success_url=None, **kwargs):
     form.declining_handler_called = True
-    return None
+    return None  # noqa: RET501
 
 
 class TestDecliningHandlerView(GuardedFormViewMixin, FormView):
