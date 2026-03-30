@@ -4,14 +4,15 @@ build-backend = "hatchling.build"
 
 [project]
 name = "django-formguard"
-version = "0.9.0"
+version = "0.9.1"
 description = "Invisible, layered form protection for Django. Honeypot fields, signed timestamps, and a pluggable check pipeline."
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Luke Rogers", email = "luke@dmptr.com"},
 ]
+keywords = ["django", "form", "spam", "honeypot", "bot-protection"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -25,7 +26,6 @@ classifiers = [
     "Framework :: Django :: 5.2",
     "Framework :: Django :: 6.0",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 dependencies = [
@@ -38,6 +38,8 @@ exclude = ["formguard/tests", "formguard/templates/formguard/tests"]
 
 [project.urls]
 Homepage = "https://github.com/dmptrluke/django-formguard"
+Issues = "https://github.com/dmptrluke/django-formguard/issues"
+Changelog = "https://github.com/dmptrluke/django-formguard/blob/master/CHANGELOG.md"
 
 [tool.ruff]
 target-version = "py310"

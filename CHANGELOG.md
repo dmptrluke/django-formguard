@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.1
+
+- Improve PyPI metadata: add project URLs (Issues, Changelog), keywords, and SPDX license format
+- Enable digital attestations in the release workflow
+
 ## 0.9.0
 
 **Breaking:** API stabilization for 1.0.
