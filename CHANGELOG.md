@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.2
+
+- Bump pygments dependency (security update)
+
 ## 0.9.1
 
 - Improve PyPI metadata: add project URLs (Issues, Changelog), keywords, and SPDX license format
