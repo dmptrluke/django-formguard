@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.3
+
+- Bump dependencies
+
 ## 0.9.2
 
 - Bump pygments dependency (security update)
