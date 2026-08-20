@@ -3,8 +3,6 @@
 Invisible form protection for Django. A pluggable check pipeline that catches
 bots without any user interaction.
 
-**WARNING**: This library is still under development. Expect breaking changes until 1.0.0.
-
 ## How It Works
 
 FormGuard runs a series of checks against each form submission:

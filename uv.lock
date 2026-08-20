@@ -61,7 +61,7 @@ wheels = [
 
 [[package]]
 name = "django-formguard"
-version = "0.9.3"
+version = "0.10.0"
 source = { editable = "." }
 dependencies = [
     { name = "django" },
@@ -78,7 +78,7 @@ test = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "django", specifier = ">=4.2" }]
+requires-dist = [{ name = "django", specifier = ">=5.2" }]
 
 [package.metadata.requires-dev]
 dev = [

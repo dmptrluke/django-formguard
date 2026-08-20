@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.0
+
+- Bump dependencies
+- Update supported versions
+- Remove warning about breaking changes. Things are fairly stable now.
+
 ## 0.9.3
 
 - Bump dependencies
