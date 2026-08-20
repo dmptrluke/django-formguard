@@ -37,6 +37,11 @@ class BaseCheck:
 
     def __init__(self, options=None):
         self.options = options or {}
+        self._owner_class = None
+
+    def _bind(self, form):
+        """Bind this check instance to its owning form."""
+        self._owner_class = type(form)
 
     def get_fields(self):
         """Return form fields to inject, as a dict of {name: field}."""

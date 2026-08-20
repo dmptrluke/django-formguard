@@ -33,6 +33,7 @@ class GuardedFormMixin:
         seen_fields = {}
 
         for check in self._checks:
+            check._bind(self)
             for name, field in check.get_fields().items():
                 if name in self.fields:
                     raise ImproperlyConfigured(

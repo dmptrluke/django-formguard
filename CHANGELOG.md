@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.0
+
+- Add Turnstile hostname validation and automatic per-form action validation
+- Clarify that Turnstile IP forwarding headers must be overwritten by a trusted proxy
+
 ## 0.10.0
 
 - Bump dependencies

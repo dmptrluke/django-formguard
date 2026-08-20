@@ -1,3 +1,4 @@
+import hashlib
 import json
 import urllib.parse
 import urllib.request
@@ -18,8 +19,8 @@ TURNSTILE_TEST_KEYS_FAIL = {
 TURNSTILE_TEST_KEYS = TURNSTILE_TEST_KEYS_PASS | TURNSTILE_TEST_KEYS_FAIL
 
 
-def verify_token(token, secret_key, ip=None, timeout=5):
-    """Verify a Turnstile response token with Cloudflare. Returns True if valid."""
+def verify_token(token, secret_key, ip=None, timeout=5, expected_hostname=None, expected_action=None):
+    """Verify a Turnstile response token and any configured response metadata."""
     if secret_key in TURNSTILE_TEST_KEYS:
         return secret_key in TURNSTILE_TEST_KEYS_PASS
 
@@ -29,7 +30,15 @@ def verify_token(token, secret_key, ip=None, timeout=5):
     data = urllib.parse.urlencode(payload).encode()
     req = urllib.request.Request(TURNSTILE_VERIFY_URL, data=data)
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-        return json.loads(resp.read()).get('success', False)
+        result = json.loads(resp.read())
+
+    if not result.get('success', False):
+        return False
+    if expected_hostname is not None and result.get('hostname') != expected_hostname:
+        return False
+    if expected_action is not None and result.get('action') != expected_action:
+        return False
+    return True
 
 
 class TurnstileCheck(BaseCheck):
@@ -45,6 +54,8 @@ class TurnstileCheck(BaseCheck):
         'IP_HEADER': None,
         'TIMEOUT': 5,
         'CALLBACK': None,
+        'ACTION': 'auto',
+        'EXPECTED_HOSTNAME': None,
     }
 
     def get_fields(self):
@@ -57,6 +68,7 @@ class TurnstileCheck(BaseCheck):
                     size=self.get_setting('SIZE'),
                     appearance=self.get_setting('APPEARANCE'),
                     callback=self.get_setting('CALLBACK'),
+                    action=self._get_action(),
                 ),
             ),
         }
@@ -73,9 +85,29 @@ class TurnstileCheck(BaseCheck):
 
         ip = self._get_client_ip(form.request)
         timeout = self.get_setting('TIMEOUT')
-        if not verify_token(token, self.get_setting('SECRET_KEY'), ip=ip, timeout=timeout):
+        if not verify_token(
+            token,
+            self.get_setting('SECRET_KEY'),
+            ip=ip,
+            timeout=timeout,
+            expected_hostname=self.get_setting('EXPECTED_HOSTNAME'),
+            expected_action=self._get_action(form),
+        ):
             return 'turnstile verification failed'
         return None
+
+    def _get_action(self, form=None):
+        action = self.get_setting('ACTION')
+        if action != 'auto':
+            return action
+
+        owner_class = type(form) if form is not None else self._owner_class
+        if owner_class is None:
+            return None
+
+        owner_path = f'{owner_class.__module__}.{owner_class.__qualname__}'
+        check_path = f'{type(self).__module__}.{type(self).__qualname__}'
+        return hashlib.sha256(f'{owner_path}:{check_path}'.encode()).hexdigest()[:32]
 
     def _get_client_ip(self, request):
         header = self.get_setting('IP_HEADER')

@@ -13,6 +13,7 @@ Add the settings:
 ```python
 FORMGUARD_TURNSTILE_SITE_KEY = 'your-site-key'
 FORMGUARD_TURNSTILE_SECRET_KEY = 'your-secret-key'
+FORMGUARD_TURNSTILE_EXPECTED_HOSTNAME = 'www.example.com'
 ```
 
 Register the check globally:
@@ -49,7 +50,17 @@ Cloudflare script, and the Turnstile widget renders automatically with
 | `FORMGUARD_TURNSTILE_TIMEOUT` | `5` | Seconds before the Cloudflare verification request times out |
 | `FORMGUARD_TURNSTILE_APPEARANCE` | `None` | Widget visibility: `always`, `execute`, `interaction-only`. `None` uses Cloudflare's default (`always`). |
 | `FORMGUARD_TURNSTILE_CALLBACK` | `None` | JS function name called when verification completes |
+| `FORMGUARD_TURNSTILE_ACTION` | `'auto'` | Widget action name. `'auto'` derives a stable ID from the form and check classes; `None` disables actions |
+| `FORMGUARD_TURNSTILE_EXPECTED_HOSTNAME` | `None` | Exact hostname required in the Siteverify response (without a scheme or port) |
 | `FORMGUARD_TURNSTILE_IP_HEADER` | `None` | `request.META` key for client IP forwarding (see below) |
+
+Set `EXPECTED_HOSTNAME` in production so tokens are accepted only for the
+expected host. By default, FormGuard derives a stable action from the form and
+check classes, renders it as `data-action`, and validates the value returned by
+Cloudflare. Set `ACTION` explicitly for a friendlier Analytics label such as
+`signup` or `login`, or to `None` to disable action validation. Explicit action
+names may contain up to 32 alphanumeric, underscore, or hyphen characters.
+Missing or mismatched configured values fail verification.
 
 ## Per-form options
 
@@ -65,6 +76,7 @@ class InterstitialForm(GuardedFormMixin, forms.Form):
         'formguard.contrib.turnstile.TurnstileCheck': {
             'CALLBACK': 'onTurnstileComplete',
             'APPEARANCE': 'interaction-only',
+            'ACTION': 'signup',
         },
     }
 ```
@@ -81,7 +93,7 @@ enable it, set `IP_HEADER` to the `request.META` key containing the client IP:
 # behind Cloudflare proxy
 FORMGUARD_TURNSTILE_IP_HEADER = 'HTTP_CF_CONNECTING_IP'
 
-# behind a standard reverse proxy
+# behind a standard reverse proxy that overwrites this header
 FORMGUARD_TURNSTILE_IP_HEADER = 'HTTP_X_FORWARDED_FOR'
 
 # direct connection
@@ -90,6 +102,13 @@ FORMGUARD_TURNSTILE_IP_HEADER = 'REMOTE_ADDR'
 
 For headers that contain comma-separated IPs (like `X-Forwarded-For`), the
 leftmost entry is used.
+
+Only configure a forwarding header when Django is behind a trusted proxy that
+strips any client-supplied value and writes the client IP itself. Otherwise an
+attacker can spoof the IP sent to Cloudflare.
+
+See Cloudflare's [server-side validation guidance](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/)
+for the Siteverify response fields and security recommendations.
 
 ## Testing
 

@@ -6,13 +6,14 @@ class TurnstileWidget(forms.Widget):
 
     template_name = 'formguard/contrib/turnstile/widget.html'
 
-    def __init__(self, site_key, theme='auto', size='normal', appearance=None, callback=None, attrs=None):
+    def __init__(self, site_key, theme='auto', size='normal', appearance=None, callback=None, action=None, attrs=None):
         super().__init__(attrs=attrs)
         self.site_key = site_key
         self.theme = theme
         self.size = size
         self.appearance = appearance
         self.callback = callback
+        self.action = action
 
     def get_context(self, name, value, attrs):
         context = super().get_context(name, value, attrs)
@@ -21,6 +22,7 @@ class TurnstileWidget(forms.Widget):
         context['widget']['size'] = self.size
         context['widget']['appearance'] = self.appearance
         context['widget']['callback'] = self.callback
+        context['widget']['action'] = self.action
         return context
 
     def value_from_datadict(self, data, files, name):

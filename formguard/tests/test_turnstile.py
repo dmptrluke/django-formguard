@@ -1,6 +1,8 @@
 import json
+import re
 from unittest.mock import MagicMock, patch
 
+from django import forms
 from django.core.exceptions import ImproperlyConfigured
 from django.forms import CharField
 from django.test import SimpleTestCase, override_settings
@@ -11,6 +13,9 @@ from formguard.contrib.turnstile.checks import (
     verify_token,
 )
 from formguard.contrib.turnstile.widgets import TurnstileWidget
+from formguard.forms import GuardedFormMixin
+
+TURNSTILE_PATH = 'formguard.contrib.turnstile.TurnstileCheck'
 
 # -- Widget tests --
 
@@ -82,6 +87,16 @@ class TurnstileWidgetTests(SimpleTestCase):
         html = widget.render('cf-turnstile-response', '', attrs={'id': 'id_cf'})
         assert 'data-callback' not in html
 
+    def test_renders_action(self):
+        widget = TurnstileWidget(site_key='k', action='signup')
+        html = widget.render('cf-turnstile-response', '', attrs={'id': 'id_cf'})
+        assert 'data-action="signup"' in html
+
+    def test_omits_action_when_none(self):
+        widget = TurnstileWidget(site_key='k')
+        html = widget.render('cf-turnstile-response', '', attrs={'id': 'id_cf'})
+        assert 'data-action' not in html
+
     # uses the correct template
     def test_template_name(self):
         widget = TurnstileWidget(site_key='k')
@@ -125,6 +140,56 @@ class VerifyTokenTests(SimpleTestCase):
         mock_urlopen.return_value = mock_resp
 
         assert verify_token('tok', 'real-secret-key') is False
+
+    @patch('formguard.contrib.turnstile.checks.urllib.request.urlopen')
+    def test_expected_hostname_matches(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({'success': True, 'hostname': 'example.com'}).encode()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_resp
+
+        assert verify_token('tok', 'real-secret-key', expected_hostname='example.com') is True
+
+    @patch('formguard.contrib.turnstile.checks.urllib.request.urlopen')
+    def test_expected_hostname_mismatch_fails(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({'success': True, 'hostname': 'attacker.example'}).encode()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_resp
+
+        assert verify_token('tok', 'real-secret-key', expected_hostname='example.com') is False
+
+    @patch('formguard.contrib.turnstile.checks.urllib.request.urlopen')
+    def test_expected_hostname_missing_fails(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({'success': True}).encode()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_resp
+
+        assert verify_token('tok', 'real-secret-key', expected_hostname='example.com') is False
+
+    @patch('formguard.contrib.turnstile.checks.urllib.request.urlopen')
+    def test_expected_action_matches(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({'success': True, 'action': 'signup'}).encode()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_resp
+
+        assert verify_token('tok', 'real-secret-key', expected_action='signup') is True
+
+    @patch('formguard.contrib.turnstile.checks.urllib.request.urlopen')
+    def test_expected_action_missing_fails(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({'success': True}).encode()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_resp
+
+        assert verify_token('tok', 'real-secret-key', expected_action='signup') is False
 
     # IP is included in the payload when provided
     @patch('formguard.contrib.turnstile.checks.urllib.request.urlopen')
@@ -276,6 +341,92 @@ class TurnstileCheckTests(SimpleTestCase):
         widget = fields['cf-turnstile-response'].widget
         assert widget.callback is None
 
+    def test_get_fields_action_from_options(self):
+        check = TurnstileCheck(options={'ACTION': 'signup'})
+        fields = check.get_fields()
+        widget = fields['cf-turnstile-response'].widget
+        assert widget.action == 'signup'
+
+    def test_get_fields_generates_stable_action_from_form_and_check_classes(self):
+        class SignupForm:
+            pass
+
+        first_check = TurnstileCheck()
+        first_check._bind(SignupForm())
+        first_action = first_check.get_fields()['cf-turnstile-response'].widget.action
+
+        second_check = TurnstileCheck()
+        second_check._bind(SignupForm())
+        second_action = second_check.get_fields()['cf-turnstile-response'].widget.action
+
+        assert first_action == second_action
+        assert len(first_action) == 32
+
+    def test_get_fields_generates_different_actions_for_different_forms(self):
+        class SignupForm:
+            pass
+
+        class LoginForm:
+            pass
+
+        signup_check = TurnstileCheck()
+        signup_check._bind(SignupForm())
+        signup_action = signup_check.get_fields()['cf-turnstile-response'].widget.action
+
+        login_check = TurnstileCheck()
+        login_check._bind(LoginForm())
+        login_action = login_check.get_fields()['cf-turnstile-response'].widget.action
+
+        assert signup_action != login_action
+
+    def test_automatic_action_meets_cloudflare_constraints(self):
+        unusual_form_class = type('A very long form name with spaces!', (), {})
+        check = TurnstileCheck()
+        check._bind(unusual_form_class())
+        action = check.get_fields()['cf-turnstile-response'].widget.action
+
+        assert len(action) <= 32
+        assert re.fullmatch(r'[A-Za-z0-9_-]+', action)
+
+    def test_action_none_disables_automatic_action(self):
+        class SignupForm:
+            pass
+
+        check = TurnstileCheck(options={'ACTION': None})
+        check._bind(SignupForm())
+        widget = check.get_fields()['cf-turnstile-response'].widget
+
+        assert widget.action is None
+
+    @patch('formguard.contrib.turnstile.checks.verify_token', return_value=True)
+    def test_check_validates_hostname_and_action(self, mock_verify_token):
+        check = TurnstileCheck(options={'EXPECTED_HOSTNAME': 'example.com', 'ACTION': 'signup'})
+        form = self._make_form({'cf-turnstile-response': 'test-token'})
+
+        assert check.check(form) is None
+        mock_verify_token.assert_called_once_with(
+            'test-token',
+            '1x0000000000000000000000000000000AA',
+            ip=None,
+            timeout=5,
+            expected_hostname='example.com',
+            expected_action='signup',
+        )
+
+    @patch('formguard.contrib.turnstile.checks.verify_token', return_value=True)
+    def test_check_validates_automatic_action_rendered_by_widget(self, mock_verify_token):
+        class SignupForm:
+            cleaned_data = {'cf-turnstile-response': 'test-token'}
+            request = MagicMock(META={})
+
+        form = SignupForm()
+        check = TurnstileCheck()
+        check._bind(form)
+        rendered_action = check.get_fields()['cf-turnstile-response'].widget.action
+
+        assert check.check(form) is None
+        assert mock_verify_token.call_args.kwargs['expected_action'] == rendered_action
+
     # get_fields widget uses theme and size from settings
     @override_settings(FORMGUARD_TURNSTILE_THEME='dark', FORMGUARD_TURNSTILE_SIZE='compact')
     def test_get_fields_theme_size(self):
@@ -326,6 +477,114 @@ class TurnstileCheckTests(SimpleTestCase):
         check = TurnstileCheck()
         with self.assertRaises(ImproperlyConfigured):
             check.get_setting('SECRET_KEY')
+
+
+# -- Form integration tests --
+
+
+@override_settings(
+    FORMGUARD_TURNSTILE_SITE_KEY='real-site-key',
+    FORMGUARD_TURNSTILE_SECRET_KEY='real-secret-key',
+)
+class TurnstileFormIntegrationTests(SimpleTestCase):
+    class AutoActionForm(GuardedFormMixin, forms.Form):
+        guard_checks = [TURNSTILE_PATH]
+        guard_check_options = {TURNSTILE_PATH: {'EXPECTED_HOSTNAME': 'example.com'}}
+
+    class ExplicitActionForm(GuardedFormMixin, forms.Form):
+        guard_checks = [TURNSTILE_PATH]
+        guard_check_options = {
+            TURNSTILE_PATH: {
+                'ACTION': 'signup',
+                'EXPECTED_HOSTNAME': 'example.com',
+            }
+        }
+
+    class NoActionForm(GuardedFormMixin, forms.Form):
+        guard_checks = [TURNSTILE_PATH]
+        guard_check_options = {
+            TURNSTILE_PATH: {
+                'ACTION': None,
+                'EXPECTED_HOSTNAME': 'example.com',
+            }
+        }
+
+    def _bound_form(self, form_class):
+        request = MagicMock()
+        request.META = {}
+        return form_class(data={'cf-turnstile-response': 'test-token'}, request=request)
+
+    def _siteverify_response(self, **result):
+        response = MagicMock()
+        response.read.return_value = json.dumps(result).encode()
+        response.__enter__ = lambda s: s
+        response.__exit__ = MagicMock(return_value=False)
+        return response
+
+    @patch('formguard.contrib.turnstile.checks.urllib.request.urlopen')
+    def test_automatic_action_is_stable_across_render_and_post(self, mock_urlopen):
+        rendered_form = self.AutoActionForm()
+        rendered_widget = rendered_form.fields['cf-turnstile-response'].widget
+        action = rendered_widget.action
+        assert f'data-action="{action}"' in str(rendered_form['cf-turnstile-response'])
+
+        mock_urlopen.return_value = self._siteverify_response(
+            success=True,
+            hostname='example.com',
+            action=action,
+        )
+        submitted_form = self._bound_form(self.AutoActionForm)
+
+        assert submitted_form.is_valid()
+
+    @patch('formguard.contrib.turnstile.checks.urllib.request.urlopen')
+    def test_action_mismatch_rejects_form(self, mock_urlopen):
+        mock_urlopen.return_value = self._siteverify_response(
+            success=True,
+            hostname='example.com',
+            action='wrong-action',
+        )
+        form = self._bound_form(self.AutoActionForm)
+
+        assert not form.is_valid()
+        assert form.guard_failures[0].reason == 'turnstile verification failed'
+
+    @patch('formguard.contrib.turnstile.checks.urllib.request.urlopen')
+    def test_hostname_mismatch_rejects_form(self, mock_urlopen):
+        form = self._bound_form(self.AutoActionForm)
+        action = form.fields['cf-turnstile-response'].widget.action
+        mock_urlopen.return_value = self._siteverify_response(
+            success=True,
+            hostname='attacker.example',
+            action=action,
+        )
+
+        assert not form.is_valid()
+        assert form.guard_failures[0].reason == 'turnstile verification failed'
+
+    @patch('formguard.contrib.turnstile.checks.urllib.request.urlopen')
+    def test_explicit_action_is_rendered_and_validated(self, mock_urlopen):
+        rendered_form = self.ExplicitActionForm()
+        assert 'data-action="signup"' in str(rendered_form['cf-turnstile-response'])
+
+        mock_urlopen.return_value = self._siteverify_response(
+            success=True,
+            hostname='example.com',
+            action='signup',
+        )
+        submitted_form = self._bound_form(self.ExplicitActionForm)
+
+        assert submitted_form.is_valid()
+
+    @patch('formguard.contrib.turnstile.checks.urllib.request.urlopen')
+    def test_action_none_omits_action_and_skips_action_validation(self, mock_urlopen):
+        rendered_form = self.NoActionForm()
+        assert 'data-action' not in str(rendered_form['cf-turnstile-response'])
+
+        mock_urlopen.return_value = self._siteverify_response(success=True, hostname='example.com')
+        submitted_form = self._bound_form(self.NoActionForm)
+
+        assert submitted_form.is_valid()
 
 
 # -- Client IP extraction tests --
